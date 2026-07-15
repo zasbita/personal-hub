@@ -1,0 +1,15 @@
+# Dependency directories
+node_modules/
+dist/
+.wrangler/
+
+# Environment secrets
+.dev.vars
+.env
+*.json.json
+credentials.json
+wrangler.toml
+
+# OS files
+.DS_Store
+Thumbs.db

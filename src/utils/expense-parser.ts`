@@ -1,0 +1,75 @@
+import { ParsedExpense } from '../types/expense';
+
+export class ExpenseParser {
+  /**
+   * Parses natural language input like "/log 50k makan siang #makanan"
+   * Supported formats: 
+   * - 50k, 50rb, 50.000, 50000, 50,000
+   * - Optional hashtag at the end for category: #category
+   */
+  static parse(text: string): { data: ParsedExpense | null, error?: string } {
+    // Remove command prefix (e.g., /log, /catat)
+    const cleanText = text.replace(/^\/(log|catat)\s+/i, '').trim();
+    
+    if (!cleanText) {
+      return { data: null, error: 'Input kosong. Gunakan format: `/log [nominal] [deskripsi]`' };
+    }
+
+    // 1. Extract category from hashtag (e.g., #makanan)
+    let category = 'General';
+    const hashtagMatch = cleanText.match(/#(\w+)/);
+    if (hashtagMatch) {
+      category = hashtagMatch[1];
+      text = cleanText.replace(/#\w+/, '').trim();
+    } else {
+      text = cleanText;
+    }
+
+    // 2. Regex to match: [amount] [description]
+    // Captures digits, dots, commas, and common k/rb suffixes
+    const regex = /^([\d.,\s]+(?:k|rb)?)\s+(.+)$/i;
+    const match = text.match(regex);
+
+    if (!match) {
+      if (!text.includes(' ')) {
+        return { data: null, error: 'Deskripsi tidak ditemukan. Gunakan format: `/log 50k makan siang`' };
+      }
+      return { data: null, error: 'Format nominal tidak valid. Gunakan angka (contoh: 50k, 10000, atau 10.000)' };
+    }
+
+    const rawAmount = match[1].trim();
+    const description = match[2].trim();
+
+    const amount = this.normalizeAmount(rawAmount);
+    if (amount === null) {
+      return { data: null, error: 'Nominal tidak terbaca. Pastikan tidak ada karakter aneh dalam angka.' };
+    }
+
+    return {
+      data: {
+        amount,
+        description,
+        category: category.charAt(0).toUpperCase() + category.slice(1).toLowerCase(),
+      }
+    };
+  }
+
+  private static normalizeAmount(raw: string): number | null {
+    // Remove trailing .00 or ,00 (cents/sen)
+    let clean = raw.toLowerCase().replace(/([.,])00$/, '').trim();
+    
+    // Handle 'k' or 'rb' suffixes
+    if (clean.endsWith('k') || clean.endsWith('rb')) {
+      const value = parseFloat(clean.slice(0, -1).replace('rb', ''));
+      return isNaN(value) ? null : value * 1000;
+    }
+
+    // Remove thousands separator (dot or comma)
+    // If it contains both dot and comma (e.g. 1.000,00), we already handled the ,00
+    // We just remove everything that isn't a digit
+    const numericOnly = clean.replace(/[.,\s]/g, '');
+    const value = parseFloat(numericOnly);
+    
+    return isNaN(value) ? null : value;
+  }
+}
