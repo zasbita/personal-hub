@@ -9,7 +9,7 @@ const env = {
   BOT_TOKEN: process.env.BOT_TOKEN || '',
   OWNER_ID: parseInt(process.env.OWNER_ID || '0', 10),
   FOOTBALL_API_KEY: process.env.FOOTBALL_API_KEY || '',
-};
+} as any;
 
 async function notifyMatches() {
   if (!env.SUPABASE_URL || !env.SUPABASE_KEY) {
