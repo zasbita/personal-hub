@@ -99,4 +99,7 @@ async function notifyMatches() {
 }
 
 // Run
-notifyMatches().catch(console.error);
+notifyMatches().catch((error) => {
+  console.error('Fatal error:', error);
+  process.exit(1);
+});
