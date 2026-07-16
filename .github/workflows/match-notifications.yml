@@ -19,7 +19,7 @@ jobs:
           node-version: '18'
       
       - name: Install dependencies
-        run: npm install
+        run: npm install --include=dev
       
       - name: Compile TypeScript
         run: npx tsc src/tasks/match-notifier.ts --outDir dist --skipLibCheck --esModuleInterop
