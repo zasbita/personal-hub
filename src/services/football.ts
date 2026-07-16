@@ -1,7 +1,7 @@
 import { ApiFootballResponse, ApiFootballLeaguesResponse } from '../types/football';
 import { BotEnv } from '../types/telegram';
 
-const BASE_URL = 'https://api-football-v1.p.rapidapi.com/v3';
+const BASE_URL = 'https://v3.football.api-sports.io';
 
 export class FootballService {
   private apiKey: string;
@@ -23,8 +23,7 @@ export class FootballService {
 
     const response = await fetch(url.toString(), {
       headers: {
-        'x-rapidapi-host': 'api-football-v1.p.rapidapi.com',
-        'x-rapidapi-key': this.apiKey,
+        'x-apisports-key': this.apiKey,
       },
     });
 
