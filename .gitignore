@@ -1,15 +1,68 @@
-# Dependency directories
+# Dependencies
 node_modules/
 dist/
 .wrangler/
+.next/
+out/
+build/
 
-# Environment secrets
-.dev.vars
+# Environment & Secrets
 .env
-*.json.json
+.env.local
+.env.*.local
+.dev.vars
 credentials.json
 wrangler.toml
 
-# OS files
+# IDE & Editor Files
+.vscode/
+.idea/
 .DS_Store
 Thumbs.db
+*.swp
+*.swo
+*~
+.sublime-project
+.sublime-workspace
+
+# Hermes & Dev Tools
+.claude/
+.rudis/
+.hermes/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+.pytest_cache/
+
+# Build Output
+dist/
+build/
+*.tsbuildinfo
+
+# Testing
+coverage/
+.nyc_output/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary Files
+*.tmp
+tmp/
+temp/
+
+# Documentation Temp
+*.md.bak
+*.md~

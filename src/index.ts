@@ -5,6 +5,7 @@ import { SheetsService } from './services/sheets'
 import { ExpenseParser } from './utils/expense-parser'
 import { getSupabase } from './services/supabase'
 import { VehicleService } from './services/vehicle'
+import { SportBotHandler } from './services/sport-handler'
 
 const app = new Hono<{ Bindings: BotEnv & { GOOGLE_SHEET_ID: string, GOOGLE_SERVICE_ACCOUNT_EMAIL: string, GOOGLE_PRIVATE_KEY: string, SUPABASE_URL: string, SUPABASE_KEY: string } }>()
 
@@ -34,7 +35,7 @@ app.post('/webhook', async (c) => {
 
   // 1. Handle /start command
   if (text === '/start') {
-    await sendMessage(c.env as any, chatId, '👋 Welcome to *Serene Darwin*!\n\n🤖 *Menu Commands:*\n💰 `/log [amount] [description]` - Catat pengeluaran\n📅 `/summary` - Ringkasan pengeluaran mingguan\n🏍️ `/update_km [number]` - Update odometer motor\n🔧 `/check_service` - Cek sisa KM jadwal servis oli');
+    await sendMessage(c.env as any, chatId, '👋 Welcome to *Serene Darwin*!\\n\\n🤖 *Menu Commands:*\\n💰 `/log [amount] [description]` - Catat pengeluaran\\n📅 `/summary` - Ringkasan pengeluaran mingguan\\n🏍️ `/update_km [number]` - Update odometer motor\\n🔧 `/check_service` - Cek sisa KM jadwal servis oli\\n⚽ `/follow [sport] [team]` - Ikuti tim/liga olahraga\\n🚫 `/unfollow [sport] [team]` - Berhenti ikuti tim\\n📋 `/myteams` - Daftar tim yang dipantau');
     return c.json({ ok: true }, { status: 200 });
   }
 
@@ -160,6 +161,24 @@ app.post('/webhook', async (c) => {
       await sendMessage(c.env as any, chatId, '❌ *Error:* Gagal menyimpan data ke Google Sheets. Pastikan Service Account sudah memiliki akses edit ke Spreadsheet.');
     }
 
+    return c.json({ ok: true }, { status: 200 });
+  }
+
+  // 6. Handle /follow command (Sports tracking)
+  if (text.startsWith('/follow')) {
+    await SportBotHandler.handleFollow(c, chatId, text, userId);
+    return c.json({ ok: true }, { status: 200 });
+  }
+
+  // 7. Handle /unfollow command
+  if (text.startsWith('/unfollow')) {
+    await SportBotHandler.handleUnfollow(c, chatId, text, userId);
+    return c.json({ ok: true }, { status: 200 });
+  }
+
+  // 8. Handle /myteams command
+  if (text === '/myteams') {
+    await SportBotHandler.handleMyTeams(c, chatId, userId);
     return c.json({ ok: true }, { status: 200 });
   }
 

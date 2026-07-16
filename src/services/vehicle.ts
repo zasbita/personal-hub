@@ -7,13 +7,9 @@ export class VehicleService {
     this.client = client;
   }
 
-  /**
-   * Updates odometer reading and returns next service target
-   */
   async updateOdometer(userId: string, username: string | undefined, km: number): Promise<{ lastKm: number; nextServiceKm: number; interval: number }> {
     const userIdNum = parseInt(userId, 10);
     
-    // 1. Ensure user exists in 'users' table (upsert whitelisted user)
     const { error: userError } = await this.client
       .from('users')
       .upsert({ 
@@ -26,7 +22,6 @@ export class VehicleService {
       throw new Error(`Failed to sync user: ${userError.message}`);
     }
 
-    // 2. Fetch existing service configuration to check custom intervals
     const { data: existing, error: fetchError } = await this.client
       .from('vehicle_service')
       .select('service_interval')
@@ -40,7 +35,6 @@ export class VehicleService {
     const interval = existing?.service_interval || 2000;
     const nextServiceKm = km + interval;
 
-    // 3. Upsert odometer record
     const { error: upsertError } = await this.client
       .from('vehicle_service')
       .upsert({
@@ -49,11 +43,9 @@ export class VehicleService {
         service_interval: interval,
         next_service_km: nextServiceKm,
         updated_at: new Date().toISOString()
-      }, { onConflict: 'user_id' }); // Handled by unique constraint or index if we align it to 1 vehicle per user
+      }, { onConflict: 'user_id' });
 
     if (upsertError) {
-      // In case onConflict needs to be explicit or if we fall back to manual check
-      // Let's perform a manual check-update since we want it to be robust
       const { data: check } = await this.client
         .from('vehicle_service')
         .select('id')
@@ -86,9 +78,6 @@ export class VehicleService {
     return { lastKm: km, nextServiceKm, interval };
   }
 
-  /**
-   * Retrieves remaining kilometers for next service
-   */
   async getServiceStatus(userId: string): Promise<{ lastKm: number; nextServiceKm: number; remainingKm: number } | null> {
     const userIdNum = parseInt(userId, 10);
     const { data, error } = await this.client
