@@ -9,21 +9,21 @@ describe('SportPrefsService', () => {
   beforeEach(() => {
     mockSupabase = {
       from: vi.fn().mockReturnThis(),
-      upsert: vi.fn().mockResolvedValue({ error: null }),
-      delete: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn(),
+      eq: vi.fn().mockReturnThis(),
       update: vi.fn().mockReturnThis(),
       insert: vi.fn().mockResolvedValue({ error: null }),
+      delete: vi.fn().mockReturnThis(),
     };
     service = new SportPrefsService(mockSupabase as unknown as SupabaseClient);
   });
 
   it('should add a new sport preference', async () => {
+    mockSupabase.insert.mockResolvedValue({ error: null });
+
     await service.addPreference('123', 'football', 'liverpool', 'Liverpool');
     expect(mockSupabase.from).toHaveBeenCalledWith('user_preferences');
-    expect(mockSupabase.upsert).toHaveBeenCalled();
+    expect(mockSupabase.insert).toHaveBeenCalled();
   });
 
   it('should remove an existing sport preference', async () => {
