@@ -22,7 +22,7 @@ jobs:
         run: npm ci
       
       - name: Compile TypeScript
-        run: npx tsc src/tasks/match-notifier.ts --outDir dist --skipLibCheck --esModuleInterop --ignoreConfig
+        run: npx tsc src/tasks/match-notifier.ts --outDir dist --skipLibCheck --esModuleInterop --ignoreConfig --lib es2020
       
       - name: Jalankan match notifier
         run: node dist/tasks/match-notifier.js
