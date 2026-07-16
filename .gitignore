@@ -66,3 +66,6 @@ temp/
 # Documentation Temp
 *.md.bak
 *.md~
+
+# Documentation folder (internal notes)
+docs/
