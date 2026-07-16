@@ -25,7 +25,7 @@ async function notifyMatches() {
   try {
     // 1. Get all active football preferences
     const { data: prefs, error: prefsError } = await supabase
-      .from('sport_preferences')
+      .from('user_preferences')
       .select('*')
       .eq('sport_type', 'football')
       .eq('notification_enabled', true);
@@ -58,7 +58,7 @@ async function notifyMatches() {
       if (matchingFixture) {
         // 4. Check if already notified
         const { data: existingNotif } = await supabase
-          .from('match_schedules')
+          .from('match_schedule')
           .select('id')
           .eq('source_id', matchingFixture.fixture.id.toString())
           .eq('sport_type', 'football')
@@ -73,8 +73,8 @@ async function notifyMatches() {
 
           await sendMessage(env, pref.user_id, msg);
 
-          // 6. Store in match_schedules to avoid duplicate notifications
-          await supabase.from('match_schedules').insert({
+          // 6. Store in match_schedule to avoid duplicate notifications
+          await supabase.from('match_schedule').insert({
             source_id: matchingFixture.fixture.id.toString(),
             sport_type: 'football',
             competition: matchingFixture.league.name,

@@ -15,7 +15,7 @@ export class MobileLegendsService {
     const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
     const { data, error } = await this.supabase
-      .from('match_schedules')
+      .from('match_schedule')
       .select('*')
       .eq('sport_type', 'mobile_legends')
       .gte('match_time', now.toISOString())
