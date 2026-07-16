@@ -1,0 +1,31 @@
+name: Notifikasi Pertandingan
+
+on:
+  schedule:
+    # Jalankan setiap 15 menit
+    - cron: '*/15 * * * *'
+  workflow_dispatch:  # Izinkan pemicu manual untuk testing
+
+jobs:
+  notify-matches:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Jalankan match notifier
+        run: npx ts-node src/tasks/match-notifier.ts
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          OWNER_ID: ${{ secrets.OWNER_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          FOOTBALL_API_KEY: ${{ secrets.FOOTBALL_API_KEY }}

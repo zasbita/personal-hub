@@ -1,15 +1,49 @@
 import { MobileLegendsMatch } from '../types/mobile-legends';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 const LIQUIPEDIA_BASE_URL = 'https://liquipedia.net/mobilelegends';
 
 export class MobileLegendsService {
+  constructor(private supabase: SupabaseClient) {}
 
   /**
-   * Fetches upcoming Mobile Legends matches from Liquipedia.
-   * This is a basic HTML scraping, highly dependent on Liquipedia's DOM structure.
+   * Fetches upcoming Mobile Legends matches from Supabase cache.
+   * Stores are updated via external scraper or manual update.
    */
   async getUpcomingMatches(): Promise<MobileLegendsMatch[]> {
-    const url = `${LIQUIPEDIA_BASE_URL}/Main_Page`; // Or specific tournament pages
+    const now = new Date();
+    const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    const { data, error } = await this.supabase
+      .from('match_schedules')
+      .select('*')
+      .eq('sport_type', 'mobile_legends')
+      .gte('match_time', now.toISOString())
+      .lte('match_time', in24Hours.toISOString())
+      .order('match_time');
+
+    if (error) {
+      throw new Error(`Failed to fetch Mobile Legends matches: ${error.message}`);
+    }
+
+    return (data || []).map(m => ({
+      tournament: m.competition,
+      stage: 'MPL',
+      team1: m.home_team,
+      team2: m.away_team,
+      dateTime: new Date(m.match_time),
+      sourceUrl: 'https://mpl.lolesports.id',
+      status: m.status as any,
+    }));
+  }
+
+  /**
+   * Fetches upcoming Mobile Legends matches from Liquipedia (HTML scraping).
+   * This is a basic HTML scraping, highly dependent on Liquipedia's DOM structure.
+   * Note: This method is a fallback and may break with Liquipedia updates.
+   */
+  async getUpcomingMatchesByScraped(): Promise<MobileLegendsMatch[]> {
+    const url = `${LIQUIPEDIA_BASE_URL}/Main_Page`;
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -20,22 +54,15 @@ export class MobileLegendsService {
     const matches: MobileLegendsMatch[] = [];
 
     // Basic regex to find match cards. This will need refinement.
-    // Liquipedia uses tables and divs with specific classes.
-    // Example: <div class="match-list-card"> ... </div>
-    // Finding upcoming matches typically involves looking for specific elements
-    // that contain teams, score, and datetime.
-    
-    // For a more robust solution, a DOM parser like 'linkedom' or 'html-rewriter' (Cloudflare specific)
-    // would be needed, but for KISS, let's try regex for critical data first.
-    
-    // Example: Looking for patterns like 'Team1 vs Team2' near a timestamp
-    // This is a simplified example and might not cover all cases.
+    // For a more robust solution, a DOM parser like 'linkedom' would be needed.
+    // For this project, we prioritize quick implementation with regex.
+
     const matchRegex = /<div class="match-list-card"[^>]*>.*?<a[^>]*href="\/mobilelegends\/([^"]+)"[^>]*>([^<]+)<\/a>.*?vs.*?<a[^>]*href="\/mobilelegends\/([^"]+)"[^>]*>([^<]+)<\/a>.*?<span class="timer-object"[^>]*data-timestamp="(\d+)"[^>]*><\/span>.*?<\/div>/gs;
 
     let match;
     while ((match = matchRegex.exec(html)) !== null) {
-      const tournament = "Unknown Tournament"; // Need to parse from context
-      const stage = "Unknown Stage"; // Need to parse from context
+      const tournament = 'Unknown Tournament'; // Need to parse from context
+      const stage = 'Unknown Stage'; // Need to parse from context
       const team1 = match[2].trim();
       const team2 = match[4].trim();
       const timestamp = parseInt(match[5]) * 1000; // Convert to milliseconds
@@ -55,10 +82,6 @@ export class MobileLegendsService {
         });
       }
     }
-
-    // This regex is very brittle and likely to break with any small change on Liquipedia.
-    // A proper DOM parser is recommended for production.
-    // For this project, we prioritize quick implementation.
 
     return matches;
   }

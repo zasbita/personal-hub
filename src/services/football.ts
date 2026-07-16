@@ -65,4 +65,18 @@ export class FootballService {
   async getLiveFixtures(): Promise<ApiFootballResponse> {
     return this.fetchApi('/fixtures', { live: 'all' });
   }
+
+  async getUpcomingFixtures(hoursAhead: number = 24): Promise<ApiFootballResponse> {
+    const now = new Date();
+    const future = new Date(now.getTime() + hoursAhead * 60 * 60 * 1000);
+    
+    const fromDate = now.toISOString().split('T')[0];
+    const toDate = future.toISOString().split('T')[0];
+    
+    return this.fetchApi('/fixtures', {
+      from: fromDate,
+      to: toDate,
+      status: 'NS,PST,LIVE',
+    });
+  }
 }
