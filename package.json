@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "test": "vitest run",
-    "notify": "ts-node src/tasks/match-notifier.ts"
+    "notify": "tsx src/tasks/match-notifier.ts"
   },
   "keywords": [],
   "author": "",
@@ -12,11 +12,12 @@
   "description": "",
   "dependencies": {
     "@supabase/supabase-js": "^2.109.0",
-    "hono": "^4.12.30",
-    "typescript": "^7.0.2"
+    "hono": "^4.12.30"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260702.1",
+    "tsx": "^4.19.2",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.10",
     "wrangler": "^4.86.0"
   }
