@@ -17,7 +17,10 @@ async function notifyMatches() {
     return;
   }
 
-  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_KEY);
+  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_KEY, {
+    auth: { persistSession: false },
+    realtime: { params: { eventsPerSecond: 0 } },
+  });
   const footballService = new FootballService(env);
 
   try {
