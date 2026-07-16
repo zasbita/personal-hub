@@ -12,9 +12,7 @@
   "description": "",
   "dependencies": {
     "@supabase/supabase-js": "^2.109.0",
-    "hono": "^4.12.30",
-    "typescript": "^7.0.2",
-    "ts-node": "^10.9.2"
+    "hono": "^4.12.30"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260702.1",

@@ -21,8 +21,11 @@ jobs:
       - name: Install dependencies
         run: npm install
       
+      - name: Compile TypeScript
+        run: npx tsc src/tasks/match-notifier.ts --outDir dist --skipLibCheck --esModuleInterop
+      
       - name: Jalankan match notifier
-        run: npx ts-node src/tasks/match-notifier.ts
+        run: node dist/tasks/match-notifier.js
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           OWNER_ID: ${{ secrets.OWNER_ID }}
