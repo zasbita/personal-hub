@@ -72,10 +72,11 @@ export class SheetsService {
   async appendExpense(amount: number, description: string, category: string) {
     const token = await this.getAccessToken();
     const sheetId = this.env.GOOGLE_SHEET_ID;
-    const range = 'A:D'; 
+    const range = 'A:E'; 
     
     const date = new Date().toISOString().split('T')[0];
-    const values = [[date, amount, description, category]];
+    const id = crypto.randomUUID();
+    const values = [[date, amount, description, category, id]];
 
     const response = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}:append?valueInputOption=USER_ENTERED`,

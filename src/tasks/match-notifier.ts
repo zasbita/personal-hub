@@ -39,19 +39,84 @@ async function notifyMatches() {
 
     console.log(`Found ${prefs.length} active preferences`);
 
-    // 2. Handle Football
+    // 2. Handle Football & MotoGP (all classes)
     const footballPrefs = prefs.filter(p => p.sport_type === 'football');
+    const motogpPrefs = prefs.filter(p => 
+      p.sport_type === 'motogp' || p.sport_type === 'moto2' || p.sport_type === 'moto3'
+    );
+    
+    // Check Football
     if (footballPrefs.length > 0) {
       await notifyFootball(supabase, footballService, footballPrefs, env);
     }
 
-    // 3. Handle MotoGP (all classes)
-    const motogpPrefs = prefs.filter(p => 
-      p.sport_type === 'motogp' || p.sport_type === 'moto2' || p.sport_type === 'moto3'
-    );
+    // Check MotoGP
     if (motogpPrefs.length > 0) {
       await notifyMotoGP(supabase, motogpService, motogpPrefs, env);
     }
+    
+    // Check for Upcoming Matches (Upcoming check logic here)
+    
+async function notifyUpcomingFootball(
+  supabase: any,
+  footballService: FootballService,
+  prefs: any[],
+  env: any
+) {
+  try {
+    const upcomingFixtures = await footballService.getUpcomingFixtures();
+    if (!upcomingFixtures.response || upcomingFixtures.response.length === 0) {
+      console.log('No upcoming football fixtures found');
+      return;
+    }
+
+    const now = new Date().getTime();
+    const FIFTEEN_MINS = 15 * 60 * 1000;
+
+    for (const pref of prefs) {
+      const matchingFixture = upcomingFixtures.response.find(
+        (f: any) =>
+          (f.teams.home.name.toLowerCase() === pref.entity_name.toLowerCase() ||
+           f.teams.away.name.toLowerCase() === pref.entity_name.toLowerCase()) &&
+          (new Date(f.fixture.date).getTime() - now <= FIFTEEN_MINS && 
+           new Date(f.fixture.date).getTime() - now > 0)
+      );
+
+      if (matchingFixture) {
+        const { data: existingNotif } = await supabase
+          .from('match_schedule')
+          .select('id')
+          .eq('source_id', matchingFixture.fixture.id.toString())
+          .eq('sport_type', 'football_upcoming')
+          .single();
+
+        if (!existingNotif) {
+          const homeTeam = matchingFixture.teams.home.name;
+          const awayTeam = matchingFixture.teams.away.name;
+          const matchTime = new Date(matchingFixture.fixture.date).toLocaleString('id-ID');
+          const msg = `📢 *Pertandingan Akan Segera Dimulai!*\\n\\n${homeTeam} vs ${awayTeam}\\n⏱️ ${matchTime}`;
+
+          await sendMessage(env, pref.user_id, msg);
+
+          await supabase.from('match_schedule').insert({
+            source_id: matchingFixture.fixture.id.toString(),
+            sport_type: 'football_upcoming',
+            competition: matchingFixture.league.name,
+            home_team: homeTeam,
+            away_team: awayTeam,
+            match_time: matchingFixture.fixture.date,
+            status: 'upcoming',
+            notified: true,
+          });
+          console.log(`Notified upcoming: ${homeTeam} vs ${awayTeam}`);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Upcoming football notification error:', error);
+  }
+}
+
 
     console.log('Match notification cycle complete');
   } catch (error) {

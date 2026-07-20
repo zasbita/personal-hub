@@ -1,0 +1,1 @@
+fetch(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: process.env.OWNER_ID, text: 'DEBUG TEST', parse_mode: 'Markdown' }) }).then(async res => { const data = await res.json(); console.log('Telegram Response:', data); }).catch(console.error);
