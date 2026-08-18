@@ -87,7 +87,9 @@ class MatchNotifier extends Command
         } catch (\Throwable $e) {
             $this->error("MotoGP error: {$e->getMessage()}");
             $ownerId = (int) config('services.telegram.owner_id', 0);
-            if ($ownerId) $tg->sendMessage($ownerId, "❌ *MotoGP error*\n`{$e->getMessage()}`");
+            if ($ownerId) {
+                $tg->sendMessage($ownerId, "❌ *MotoGP error*\n`{$e->getMessage()}`");
+            }
         }
     }
 }
