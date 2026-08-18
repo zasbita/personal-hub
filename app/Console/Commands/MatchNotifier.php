@@ -12,17 +12,26 @@ class MatchNotifier extends Command
 
     public function handle(): int
     {
-        $s = new SupabaseService();
-        $tg = new TelegramService();
-        $prefs = (new SportPrefsService($s))->getActivePreferences();
-        if (empty($prefs)) { $this->info('No active preferences'); return 0; }
-        $this->info(count($prefs) . ' active preferences');
+        try {
+            $s = new SupabaseService();
+            $tg = new TelegramService();
+            $prefs = (new SportPrefsService($s))->getActivePreferences();
+            if (empty($prefs)) { $this->info('No active preferences'); return 0; }
+            $this->info(count($prefs) . ' active preferences');
 
-        $fp = array_values(array_filter($prefs, fn($p) => $p['sport_type'] === 'football'));
-        $mp = array_values(array_filter($prefs, fn($p) => in_array($p['sport_type'], ['motogp', 'moto2', 'moto3'])));
-        if ($fp) $this->notifyFootball($s, $tg, $fp);
-        if ($mp) $this->notifyMotoGP($s, $tg, $mp);
-        $this->info('Done');
+            $fp = array_values(array_filter($prefs, fn($p) => $p['sport_type'] === 'football'));
+            $mp = array_values(array_filter($prefs, fn($p) => in_array($p['sport_type'], ['motogp', 'moto2', 'moto3'])));
+            if ($fp) $this->notifyFootball($s, $tg, $fp);
+            if ($mp) $this->notifyMotoGP($s, $tg, $mp);
+            $this->info('Done');
+        } catch (\Throwable $e) {
+            $this->error("Match Notifier Error: {$e->getMessage()}");
+            $ownerId = (int) config('services.telegram.owner_id', 0);
+            if ($ownerId) {
+                $tg->sendMessage($ownerId, "❌ *Match Notifier Error*\n`" . $e->getMessage() . "`");
+            }
+            return 1;
+        }
         return 0;
     }
 
@@ -46,7 +55,11 @@ class MatchNotifier extends Command
                     }
                 }
             }
-        } catch (\Exception $e) { $this->error("Football error: {$e->getMessage()}"); }
+        } catch (\Throwable $e) {
+            $this->error("Football error: {$e->getMessage()}");
+            $ownerId = (int) config('services.telegram.owner_id', 0);
+            if ($ownerId) $tg->sendMessage($ownerId, "❌ *Football error*\n`{$e->getMessage()}`");
+        }
     }
 
     private function notifyMotoGP(SupabaseService $s, TelegramService $tg, array $prefs): void
@@ -71,6 +84,10 @@ class MatchNotifier extends Command
                     }
                 }
             }
-        } catch (\Exception $e) { $this->error("MotoGP error: {$e->getMessage()}"); }
+        } catch (\Throwable $e) {
+            $this->error("MotoGP error: {$e->getMessage()}");
+            $ownerId = (int) config('services.telegram.owner_id', 0);
+            if ($ownerId) $tg->sendMessage($ownerId, "❌ *MotoGP error*\n`{$e->getMessage()}`");
+        }
     }
 }
