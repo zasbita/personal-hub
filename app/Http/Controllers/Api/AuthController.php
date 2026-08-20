@@ -18,10 +18,10 @@ class AuthController extends Controller
             ->post("{$url}/auth/v1/token?grant_type=password", ['email' => $request->email, 'password' => $request->password]);
         if ($r->failed() || !isset($r->json()['access_token'])) return response()->json(['error' => 'Invalid email or password'], 401);
         $d = $r->json();
-        $cookie = now()->addSeconds($d['session']['expires_in'] ?? 3600);
+        $expires = $d['expires_in'] ?? 3600;
         return response()->json(['user' => ['id' => $d['user']['id'], 'email' => $d['user']['email'] ?? '']])
-            ->withCookie(cookie('sb_access_token', $d['session']['access_token'], $cookie, '/', null, false, true, false, 'strict'))
-            ->withCookie(cookie('sb_refresh_token', $d['session']['refresh_token'], $cookie, '/', null, false, true, false, 'strict'));
+            ->withCookie(cookie('sb_access_token', $d['access_token'], $expires, '/', null, false, true, false, 'strict'))
+            ->withCookie(cookie('sb_refresh_token', $d['refresh_token'], $expires, '/', null, false, true, false, 'strict'));
     }
 
     public function logout(): JsonResponse
