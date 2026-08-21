@@ -17,10 +17,11 @@ class VolleyballService
     public function getUpcomingGames(): array
     {
         return Cache::remember('volleyball.upcoming', now()->addHours(6), function () {
-            return array_merge(
+            $all = array_merge(
                 $this->fetch(now()->format('Y-m-d')),
                 $this->fetch(now()->addDay()->format('Y-m-d')),
             );
+            return array_values(array_column($all, null, 'id')); // a game can be listed under both dates
         });
     }
 
