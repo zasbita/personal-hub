@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\{ExpenseParser, SheetsService, SportPrefsService, SupabaseService, TelegramService, VehicleService};
+use App\Services\{ExpenseParser, FootballService, MotoGPService, SheetsService, SportPrefsService, SupabaseService, TelegramService, VehicleService, VolleyballService};
 use Illuminate\Console\Command;
 
 class TelegramBot extends Command
@@ -98,10 +98,50 @@ class TelegramBot extends Command
             $tg->sendMessage($cid, "⚠️ Sport *{$p[1]}* belum didukung.\nPilihan: `" . implode('`, `', SportPrefsService::SPORTS) . "`");
             return;
         }
+        $sport = strtolower($p[1]);
+        $wanted = implode(' ', array_slice($p, 2));
         try {
-            (new SportPrefsService(new SupabaseService()))->addPreference($uid, strtolower($p[1]), strtolower(implode(' ', array_slice($p, 2))), implode(' ', array_slice($p, 2)));
-            $tg->sendMessage($cid, "✅ Memantau *" . implode(' ', array_slice($p, 2)) . "* di *{$p[1]}*");
+            $name = $this->resolveEntity($sport, $wanted, $cid, $tg);
+            if ($name === null) return;
+            (new SportPrefsService(new SupabaseService()))->addPreference($uid, $sport, strtolower($name), $name);
+            $tg->sendMessage($cid, "✅ Memantau *{$name}* di *{$sport}*");
         } catch (\Exception $e) { $tg->sendMessage($cid, "❌ Error simpan preferensi."); }
+    }
+
+    /**
+     * Confirm the followed entity actually exists in the API, so a preference
+     * cannot be stored that the notifier will never match. Returns the
+     * canonical name, or null after replying with suggestions.
+     */
+    private function resolveEntity(string $sport, string $wanted, int $cid, TelegramService $tg): ?string
+    {
+        try {
+            if (in_array($sport, ['motogp', 'moto2', 'moto3', 'baggers'], true)) {
+                $moto = new MotoGPService();
+                $races = $moto->upcomingRaceNames();
+                foreach ($races as $r) {
+                    if ($moto->matchesRace($r, $wanted)) return $wanted;
+                }
+                $tg->sendMessage($cid, "⚠️ *{$wanted}* tidak cocok dengan sisa balapan musim ini.\nContoh: `" . implode('`, `', array_slice($races, 0, 4)) . "`");
+                return null;
+            }
+
+            $options = $sport === 'football'
+                ? (new FootballService())->searchTeams($wanted)
+                : (new VolleyballService())->searchTeams($wanted);
+            foreach ($options as $o) {
+                if (strcasecmp($o, $wanted) === 0) return $o;
+            }
+            if (empty($options)) {
+                $tg->sendMessage($cid, "⚠️ Tim *{$wanted}* tidak ditemukan di data {$sport}.");
+                return null;
+            }
+            $tg->sendMessage($cid, "⚠️ Tim *{$wanted}* tidak persis ada. Maksudmu:\n`" . implode("`\n`", array_slice($options, 0, 6)) . "`");
+            return null;
+        } catch (\Throwable $e) {
+            $tg->sendMessage($cid, "❌ Gagal cek nama: {$e->getMessage()}");
+            return null;
+        }
     }
 
     private function handleUnfollow(int $uid, int $cid, string $text, TelegramService $tg): void

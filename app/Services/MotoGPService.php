@@ -9,7 +9,10 @@ class MotoGPService
     private const API = 'https://api.motogp.pulselive.com/motogp/v1';
 
     /** sport_type => category acronym used by the MotoGP API */
-    private const CLASSES = ['motogp' => 'MGP', 'moto2' => 'MT2', 'moto3' => 'MT3'];
+    private const CLASSES = ['motogp' => 'MGP', 'moto2' => 'MT2', 'moto3' => 'MT3', 'baggers' => 'BWC'];
+
+    /** Race sessions worth a notification: the GP, the sprint, and multi-race classes. */
+    private const RACE_SESSIONS = ['RAC', 'SPR', 'RAC1', 'RAC2'];
 
     private ?array $events = null;
 
@@ -26,12 +29,14 @@ class MotoGPService
         foreach ($this->events() as $e) {
             if (($e['kind'] ?? '') !== 'GP') continue; // skip tests/shows
             foreach ($e['broadcasts'] ?? [] as $b) {
-                if (($b['kind'] ?? '') !== 'RACE' || ($b['shortname'] ?? '') !== 'RAC') continue;
+                if (($b['kind'] ?? '') !== 'RACE' || !in_array($b['shortname'] ?? '', self::RACE_SESSIONS, true)) continue;
                 if (($b['category']['acronym'] ?? '') !== $acronym) continue;
                 $dt = new \DateTimeImmutable($b['date_start']);
                 if ($dt <= $now) continue;
                 $races[] = [
                     'round' => (string) ($e['sequence'] ?? 0),
+                    'session' => $b['shortname'],
+                    'sessionName' => $b['name'] ?? '',
                     'raceName' => trim($e['name'] ?? ''),
                     'date' => $dt->format('Y-m-d'),
                     'time' => $dt->format('H:i:sP'),
@@ -49,6 +54,19 @@ class MotoGPService
         return $races;
     }
 
+    /** Race names left in the season, used to validate what a user follows. */
+    public function upcomingRaceNames(): array
+    {
+        $now = new \DateTimeImmutable();
+        $names = [];
+        foreach ($this->events() as $e) {
+            if (($e['kind'] ?? '') !== 'GP') continue;
+            if (new \DateTimeImmutable($e['date_end']) <= $now) continue;
+            $names[] = trim($e['name'] ?? '');
+        }
+        return array_values(array_unique($names));
+    }
+
     public function matchesRace(string $raceName, string $search): bool
     {
         $l = strtolower($raceName);
@@ -58,8 +76,12 @@ class MotoGPService
 
     public function formatRaceInfo(array $race): string
     {
-        $dt = new \DateTime($race['date'] . 'T' . ($race['time'] ?? '00:00:00'));
-        return "🏍️ *{$race['raceName']}*\n🏁 {$race['Circuit']['circuitName']}\n📍 {$race['Circuit']['Location']['locality']}, {$race['Circuit']['Location']['country']}\n⏱️ " . $dt->format('d/m/Y H:i');
+        $session = $race['sessionName'] ?? '';
+        return "🏍️ *{$race['raceName']}*"
+            . ($session ? "\n🏁 {$session}" : '')
+            . "\n🏟️ {$race['Circuit']['circuitName']}"
+            . "\n📍 {$race['Circuit']['Location']['locality']}, {$race['Circuit']['Location']['country']}"
+            . "\n⏱️ " . DisplayTime::format($race['date'] . 'T' . ($race['time'] ?? '00:00:00'));
     }
 
     /** Every event of the current season, with its session schedule. Fetched once per instance. */

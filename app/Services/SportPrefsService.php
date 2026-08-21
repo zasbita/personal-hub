@@ -5,7 +5,7 @@ namespace App\Services;
 class SportPrefsService
 {
     /** Sport types MatchNotifier actually knows how to check. */
-    public const SPORTS = ['football', 'volly', 'motogp', 'moto2', 'moto3'];
+    public const SPORTS = ['football', 'volly', 'motogp', 'moto2', 'moto3', 'baggers'];
 
     private SupabaseService $supabase;
     public function __construct(SupabaseService $s) { $this->supabase = $s; }

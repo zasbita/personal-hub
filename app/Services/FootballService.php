@@ -16,7 +16,7 @@ class FootballService
      */
     public function getUpcomingFixtures(): array
     {
-        return Cache::remember('football.upcoming', now()->addHours(6), function () {
+        return Cache::remember('football.upcoming', now()->addHours(3), function () {
             $all = array_merge(
                 $this->fetch(now()->format('Y-m-d')),
                 $this->fetch(now()->addDay()->format('Y-m-d')),
@@ -25,15 +25,30 @@ class FootballService
         });
     }
 
-    private function fetch(string $date): array
+    /** Team names matching $query, for validating what a user follows. */
+    public function searchTeams(string $query): array
+    {
+        return Cache::remember('football.teams.' . strtolower($query), now()->addDay(), function () use ($query) {
+            $j = $this->request('/teams', ['search' => $query]);
+            return array_map(fn($t) => $t['team']['name'], $j['response'] ?? []);
+        });
+    }
+
+    private function request(string $endpoint, array $params): array
     {
         $key = config('services.football.api_key', '');
         if (empty($key)) throw new \RuntimeException('Football API Key not configured');
-        // from/to need a league or team, so query one date at a time
-        $r = Http::withHeaders(['x-apisports-key' => $key])->timeout(15)->get(self::API . '/fixtures', ['date' => $date]);
+        $r = Http::withHeaders(['x-apisports-key' => $key])->timeout(15)->get(self::API . $endpoint, $params);
         if ($r->failed()) throw new \RuntimeException("API Football Error: {$r->body()}");
         $j = $r->json();
         if (!empty($j['errors'])) throw new \RuntimeException('API Football Error: ' . json_encode($j['errors']));
+        return $j;
+    }
+
+    private function fetch(string $date): array
+    {
+        // from/to need a league or team, so query one date at a time
+        $j = $this->request('/fixtures', ['date' => $date]);
         $out = [];
         foreach ($j['response'] ?? [] as $f) {
             if (($f['fixture']['status']['short'] ?? '') !== 'NS') continue;
