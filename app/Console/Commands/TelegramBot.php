@@ -94,6 +94,10 @@ class TelegramBot extends Command
     {
         $p = explode(' ', $text);
         if (count($p) < 3) { $tg->sendMessage($cid, "⚠️ Format: `/follow [sport] [team]`"); return; }
+        if (!in_array(strtolower($p[1]), SportPrefsService::SPORTS, true)) {
+            $tg->sendMessage($cid, "⚠️ Sport *{$p[1]}* belum didukung.\nPilihan: `" . implode('`, `', SportPrefsService::SPORTS) . "`");
+            return;
+        }
         try {
             (new SportPrefsService(new SupabaseService()))->addPreference($uid, strtolower($p[1]), strtolower(implode(' ', array_slice($p, 2))), implode(' ', array_slice($p, 2)));
             $tg->sendMessage($cid, "✅ Memantau *" . implode(' ', array_slice($p, 2)) . "* di *{$p[1]}*");
