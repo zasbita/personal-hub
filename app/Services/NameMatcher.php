@@ -26,8 +26,10 @@ class NameMatcher
     ];
 
     /**
-     * Loose match of a followed entity against a name coming from an API.
-     * Substring so national women's sides ("Indonesia W") match "Indonesia".
+     * Match a followed entity against a name coming from an API.
+     * Exact only, plus the " W" suffix the APIs use for women's sides —
+     * substring matching pulled in youth teams and namesakes
+     * ("Liverpool U21", "Liverpool Montevideo").
      */
     public static function matches(string $apiName, string $search): bool
     {
@@ -35,6 +37,6 @@ class NameMatcher
         $s = strtolower(trim($search, " \t\n\r\0\x0B\"'"));
         if ($s === '') return false;
         $s = self::ALIASES[$s] ?? $s;
-        return str_contains($a, $s);
+        return $a === $s || $a === "{$s} w";
     }
 }
