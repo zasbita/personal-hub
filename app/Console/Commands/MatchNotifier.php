@@ -10,6 +10,9 @@ class MatchNotifier extends Command
     protected $signature = 'bot:notify';
     protected $description = 'Check for live/upcoming matches and send notifications';
 
+    /** How long before a race starts the notification goes out. */
+    private const NOTIFY_WINDOW = '+1 hour';
+
     public function handle(): int
     {
         try {
@@ -68,7 +71,9 @@ class MatchNotifier extends Command
             $moto = new MotoGPService();
             $all = [];
             foreach (['motogp', 'moto2', 'moto3'] as $c) { foreach ($moto->getCurrentSeasonRaces($c) as $r) { $all[] = array_merge($r, ['classification' => $c]); } }
-            if (empty($all)) { $this->info('No upcoming MotoGP'); return; }
+            $cutoff = (new \DateTimeImmutable())->modify(self::NOTIFY_WINDOW);
+            $all = array_values(array_filter($all, fn($r) => new \DateTimeImmutable($r['date'] . 'T' . ($r['time'] ?? '00:00:00')) <= $cutoff));
+            if (empty($all)) { $this->info('No MotoGP race starting soon'); return; }
             foreach ($prefs as $p) {
                 foreach ($all as $r) {
                     if ($moto->matchesRace($r['raceName'], $p['entity_name'])) {
