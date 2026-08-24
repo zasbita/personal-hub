@@ -34,6 +34,14 @@ class VolleyballService
         });
     }
 
+    /** Final set score of one game, or null while it is still being played. */
+    public function getResult(string $id): ?array
+    {
+        $g = $this->request('/games', ['id' => $id])['response'][0] ?? null;
+        if (!$g || ($g['status']['short'] ?? '') !== 'FT') return null;
+        return ['home' => (int) ($g['scores']['home'] ?? 0), 'away' => (int) ($g['scores']['away'] ?? 0)];
+    }
+
     private function request(string $endpoint, array $params): array
     {
         $key = config('services.api_sports.key', '');

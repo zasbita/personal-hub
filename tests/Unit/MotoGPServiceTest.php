@@ -49,4 +49,18 @@ class MotoGPServiceTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         (new MotoGPService())->getCurrentSeasonRaces('formula1');
     }
+
+    public function test_a_followed_race_matches_only_its_own_round(): void
+    {
+        $moto = new MotoGPService();
+
+        $this->assertTrue($moto->matchesRace('GRAND PRIX OF ARAGON', 'Aragon'));
+        $this->assertTrue($moto->matchesRace('ARAGON GP', 'Aragon Grand Prix'));
+        $this->assertTrue($moto->matchesRace("GRAN PREMIO D'ITALIA", 'Italia'));
+
+        // Every round shares the "grand prix" boilerplate; it must not match on it.
+        $this->assertFalse($moto->matchesRace('GRAND PRIX OF JAPAN', 'Aragon Grand Prix'));
+        $this->assertFalse($moto->matchesRace("GRAN PREMIO D'ITALIA", "Gran Premio d'España"));
+        $this->assertFalse($moto->matchesRace('GRAND PRIX OF ARAGON', ''));
+    }
 }

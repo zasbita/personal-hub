@@ -34,6 +34,18 @@ class FootballService
         });
     }
 
+    /**
+     * Final score of one fixture, or null while it is not over yet. Not cached:
+     * a null means "ask again next run", and once it is final the row is marked
+     * reported so nothing asks twice.
+     */
+    public function getResult(string $id): ?array
+    {
+        $f = $this->request('/fixtures', ['id' => $id])['response'][0] ?? null;
+        if (!$f || !in_array($f['fixture']['status']['short'] ?? '', ['FT', 'AET', 'PEN'], true)) return null;
+        return ['home' => (int) ($f['goals']['home'] ?? 0), 'away' => (int) ($f['goals']['away'] ?? 0)];
+    }
+
     private function request(string $endpoint, array $params): array
     {
         $key = config('services.football.api_key', '');

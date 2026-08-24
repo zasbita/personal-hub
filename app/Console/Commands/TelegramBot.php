@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\{ExpenseParser, FootballService, MotoGPService, SheetsService, SportPrefsService, SupabaseService, TelegramService, VehicleService, VolleyballService};
+use App\Services\{ExpenseParser, ExpenseSummary, FootballService, MotoGPService, SheetsService, SportPrefsService, SupabaseService, TelegramService, VehicleService, VolleyballService};
 use Illuminate\Console\Command;
 
 class TelegramBot extends Command
@@ -12,10 +12,47 @@ class TelegramBot extends Command
 
     private int $offset = 0;
 
+    /** Days a `/summary 30` may ask for. A year of rows is already more than Telegram will show. */
+    private const SUMMARY_MAX_DAYS = 365;
+
+    /** Plain chat must name a believable amount before it counts as an expense. */
+    private const IMPLICIT_MIN_AMOUNT = 1000;
+
+    /** The command list Telegram shows in its own "/" menu. */
+    private const MENU = [
+        'log' => 'Catat pengeluaran — /log 50k makan siang',
+        'undo' => 'Hapus pengeluaran terakhir',
+        'summary' => 'Ringkasan pengeluaran — /summary atau /summary 30',
+        'update_km' => 'Update odometer motor — /update_km 12500',
+        'check_service' => 'Sisa KM sampai servis berikutnya',
+        'follow' => 'Pantau tim atau balapan — /follow volly Indonesia',
+        'unfollow' => 'Berhenti memantau — /unfollow volly Indonesia',
+        'myteams' => 'Daftar yang sedang dipantau',
+    ];
+
+    private const WELCOME = "👋 *Serene Darwin*\n"
+        . "Asisten pribadi buat catat duit, motor, dan jadwal pertandingan.\n\n"
+        . "💰 *Keuangan*\n"
+        . "`50k makan siang` — catat langsung, tanpa perintah\n"
+        . "`25k kopi #Jajan` — pakai kategori\n"
+        . "`/undo` — hapus catatan terakhir\n"
+        . "`/summary` — ringkasan 7 hari\n"
+        . "`/summary 30` — ganti jumlah hari\n\n"
+        . "🏍️ *Motor*\n"
+        . "`/update_km 12500` — update odometer\n"
+        . "`/check_service` — sisa KM ke servis\n\n"
+        . "🏆 *Olahraga*\n"
+        . "`/follow volly Indonesia` — pantau tim\n"
+        . "`/unfollow volly Indonesia` — berhenti pantau\n"
+        . "`/myteams` — daftar pantauan\n\n"
+        . "_Notifikasi 1 jam sebelum pertandingan, skor akhir setelah selesai,_\n"
+        . "_laporan mingguan tiap Senin pagi._";
+
     public function handle(): int
     {
         $tg = new TelegramService();
         $oid = (int) config('services.telegram.owner_id');
+        $tg->setCommands(self::MENU);
         $this->info("Bot listening... Owner ID: {$oid}");
 
         while (true) {
@@ -39,26 +76,40 @@ class TelegramBot extends Command
 
         if ($uid !== $oid) { $tg->sendMessage($cid, "❌ *Unauthorized.* Your ID: `{$uid}`"); return; }
 
-        if ($text === '/start') { $tg->sendMessage($cid, "👋 *Serene Darwin*\n\n💰 `/log [amount] [desc]`\n📅 `/summary`\n🏍️ `/update_km [km]`\n🔧 `/check_service`\n⚽ `/follow [sport] [team]`\n🚫 `/unfollow [sport] [team]`\n📋 `/myteams`"); return; }
-        if ($text === '/summary') { $this->handleSummary($cid, $tg); return; }
+        if ($text === '/start' || $text === '/help') { $tg->sendMessage($cid, self::WELCOME); return; }
+        if (str_starts_with($text, '/summary')) { $this->handleSummary($cid, $text, $tg); return; }
         if (str_starts_with($text, '/update_km')) { $this->handleKm($uid, $msg['from']['username'] ?? null, $cid, $text, $tg); return; }
         if ($text === '/check_service') { $this->handleService($uid, $cid, $tg); return; }
         if (str_starts_with($text, '/log') || str_starts_with($text, '/catat')) { $this->handleExpense($cid, $text, $tg); return; }
+        if ($text === '/undo') { $this->handleUndo($cid, $tg); return; }
         if (str_starts_with($text, '/follow')) { $this->handleFollow($uid, $cid, $text, $tg); return; }
         if (str_starts_with($text, '/unfollow')) { $this->handleUnfollow($uid, $cid, $text, $tg); return; }
         if ($text === '/myteams') { $this->handleMyTeams($uid, $cid, $tg); return; }
-        $tg->sendMessage($cid, "I don't understand. Try `/log`.");
+        if (str_starts_with($text, '/')) { $tg->sendMessage($cid, "❓ Perintah tidak dikenal. Lihat `/help`."); return; }
+        // Plain text is an expense: typing /log before every note is friction.
+        $this->handleExpense($cid, $text, $tg, true);
     }
 
-    private function handleSummary(int $cid, TelegramService $tg): void
+    private function handleSummary(int $cid, string $text, TelegramService $tg): void
+    {
+        preg_match('/^\/summary\s+(\d+)/', $text, $dm);
+        $days = min(max((int) ($dm[1] ?? 7), 1), self::SUMMARY_MAX_DAYS);
+        try {
+            $r = (new SheetsService())->getRecentExpenses($days);
+            if (empty($r['items'])) { $tg->sendMessage($cid, "📅 Belum ada pengeluaran {$days} hari terakhir."); return; }
+            $tg->sendMessage($cid, ExpenseSummary::format($r, $days));
+        } catch (\Exception $e) { $tg->sendMessage($cid, "❌ Error mengambil data."); }
+    }
+
+    private function handleUndo(int $cid, TelegramService $tg): void
     {
         try {
-            $r = (new SheetsService())->getWeeklyExpenses();
-            if (empty($r['items'])) { $tg->sendMessage($cid, "📅 Belum ada pengeluaran 7 hari terakhir."); return; }
-            $m = "📅 *Ringkasan 7 Hari*\n\n";
-            foreach ($r['items'] as $i => $it) { $m .= ($i + 1) . ". *{$it['date']}* - {$it['description']}: *Rp " . number_format($it['amount'], 0, ',', '.') . "*\n"; }
-            $tg->sendMessage($cid, $m . "\n💰 *Total: Rp " . number_format($r['total'], 0, ',', '.') . "*");
-        } catch (\Exception $e) { $tg->sendMessage($cid, "❌ Error mengambil data."); }
+            $s = new SheetsService();
+            $last = $s->lastExpense();
+            if (!$last) { $tg->sendMessage($cid, "📭 Belum ada pengeluaran untuk dihapus."); return; }
+            $s->deleteExpenseRow($last['row']);
+            $tg->sendMessage($cid, "🗑️ *Dihapus:* Rp " . ExpenseSummary::rupiah($last['amount']) . " - {$last['description']}");
+        } catch (\Exception $e) { $tg->sendMessage($cid, "❌ Error hapus pengeluaran."); }
     }
 
     private function handleKm(int $uid, ?string $un, int $cid, string $text, TelegramService $tg): void
@@ -80,13 +131,16 @@ class TelegramBot extends Command
         } catch (\Exception $e) { $tg->sendMessage($cid, "❌ Error cek servis."); }
     }
 
-    private function handleExpense(int $cid, string $text, TelegramService $tg): void
+    private function handleExpense(int $cid, string $text, TelegramService $tg, bool $implicit = false): void
     {
-        $p = ExpenseParser::parse($text);
+        $p = ExpenseParser::parse($text, $implicit ? self::IMPLICIT_MIN_AMOUNT : 0);
         if (!$p) { $tg->sendMessage($cid, "⚠️ Format: `/log 50k makan siang`"); return; }
         try {
-            (new SheetsService())->appendExpense($p['amount'], $p['description'], $p['category']);
-            $tg->sendMessage($cid, "✅ *Rp " . number_format($p['amount'], 0, ',', '.') . "* untuk *{$p['description']}*\n📁 {$p['category']}");
+            $s = new SheetsService();
+            $s->appendExpense($p['amount'], $p['description'], $p['category']);
+            $reply = "✅ *Rp " . ExpenseSummary::rupiah($p['amount']) . "* untuk *{$p['description']}*\n📁 {$p['category']}";
+            $budget = ExpenseSummary::budgetLine($s->spentThisMonth());
+            $tg->sendMessage($cid, $budget ? "{$reply}\n\n{$budget}" : $reply);
         } catch (\Exception $e) { $tg->sendMessage($cid, "❌ Error simpan ke Sheets."); }
     }
 

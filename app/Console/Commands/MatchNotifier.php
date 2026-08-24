@@ -15,9 +15,11 @@ class MatchNotifier extends Command
 
     public function handle(): int
     {
+        // Built before the try block: the catch below reports through it.
+        $tg = new TelegramService();
         try {
             $s = new SupabaseService();
-            $tg = new TelegramService();
+            $this->reportResults($s, $tg);
             $prefs = (new SportPrefsService($s))->getActivePreferences();
             if (empty($prefs)) { $this->info('No active preferences'); return 0; }
             $this->info(count($prefs) . ' active preferences');
@@ -54,10 +56,11 @@ class MatchNotifier extends Command
             foreach ($prefs as $p) {
                 foreach ($soon as $m) {
                     if (!NameMatcher::matches($m['home'], $p['entity_name']) && !NameMatcher::matches($m['away'], $p['entity_name'])) continue;
-                    $ex = $s->select('match_schedule', ['select' => 'id', 'source_id' => "eq.{$m['id']}", 'sport_type' => "eq.{$sport}"]);
+                    $sid = self::sourceId($m['id'], $p['user_id']);
+                    $ex = $s->select('match_schedule', ['select' => 'id', 'source_id' => "eq.{$sid}", 'sport_type' => "eq.{$sport}"]);
                     if ($ex) continue;
                     $tg->sendMessage((int) $p['user_id'], "{$emoji} *1 jam lagi!*\n{$m['home']} vs {$m['away']}\n🏆 {$m['league']}\n⏱️ " . DisplayTime::format($m['date']));
-                    $s->insert('match_schedule', ['source_id' => $m['id'], 'sport_type' => $sport, 'competition' => $m['league'], 'home_team' => $m['home'], 'away_team' => $m['away'], 'match_time' => $m['date'], 'status' => 'NS', 'notified' => true]);
+                    $s->insert('match_schedule', ['source_id' => $sid, 'sport_type' => $sport, 'competition' => $m['league'], 'home_team' => $m['home'], 'away_team' => $m['away'], 'match_time' => $m['date'], 'status' => 'NS', 'notified' => true]);
                     $this->info("Notified {$p['user_id']}: {$m['home']} vs {$m['away']}");
                 }
             }
@@ -79,7 +82,7 @@ class MatchNotifier extends Command
             foreach ($prefs as $p) {
                 foreach ($all as $r) {
                     if ($moto->matchesRace($r['raceName'], $p['entity_name'])) {
-                        $sid = "{$r['classification']}-{$r['round']}-{$r['session']}";
+                        $sid = self::sourceId("{$r['classification']}-{$r['round']}-{$r['session']}", $p['user_id']);
                         $ex = $s->select('match_schedule', ['select' => 'id', 'source_id' => "eq.{$sid}", 'sport_type' => "eq.{$r['classification']}"]);
                         if (empty($ex)) {
                             $tg->sendMessage((int) $p['user_id'], "🏍️ *" . strtoupper($r['classification']) . " 1 jam lagi!*\n\n" . $moto->formatRaceInfo($r));
@@ -95,6 +98,57 @@ class MatchNotifier extends Command
             $this->warn("MotoGP skipped: {$e->getMessage()}");
             return;
         }
+    }
+
+    /**
+     * Send the final score of matches that were announced earlier and have since
+     * finished, then mark the row so it is only reported once.
+     * ponytail: football and volleyball only — MotoGP results live on a different
+     * endpoint with a different shape; add a MotoGPService::getResult if wanted.
+     */
+    private function reportResults(SupabaseService $s, TelegramService $tg): void
+    {
+        try {
+            $from = (new \DateTimeImmutable('-6 hours'))->format(\DateTimeInterface::ATOM);
+            $to = (new \DateTimeImmutable('-2 hours'))->format(\DateTimeInterface::ATOM);
+            // Before kickoff + 2h nothing is final, and after 6h it is stale news.
+            $rows = $s->select('match_schedule', ['select' => 'id,source_id,sport_type,home_team,away_team,competition', 'status' => 'eq.NS', 'and' => "(match_time.gte.{$from},match_time.lte.{$to})"]);
+            foreach ($rows as $row) {
+                if (!in_array($row['sport_type'], ['football', 'volly'], true)) continue;
+                [$apiId, $userId] = self::splitSourceId($row['source_id']);
+                if ($userId === null) continue; // row predates the per-user key: no recipient to read off it
+                $score = $row['sport_type'] === 'football'
+                    ? (new FootballService())->getResult($apiId)
+                    : (new VolleyballService())->getResult($apiId);
+                if (!$score) continue;
+                $emoji = $row['sport_type'] === 'football' ? '⚽' : '🏐';
+                $tg->sendMessage($userId, "{$emoji} *Selesai*\n{$row['home_team']} *{$score['home']} - {$score['away']}* {$row['away_team']}\n🏆 {$row['competition']}");
+                $s->update('match_schedule', ['status' => 'FT'], ['id' => "eq.{$row['id']}"]);
+                $this->info("Result sent to {$userId}: {$row['home_team']} {$score['home']}-{$score['away']} {$row['away_team']}");
+            }
+        } catch (\Throwable $e) {
+            $this->error("Results error: {$e->getMessage()}");
+        }
+    }
+
+    /**
+     * Split a source_id back into the API id and the recipient.
+     * @return array{0: string, 1: ?int}
+     */
+    private static function splitSourceId(string $sourceId): array
+    {
+        $at = strrpos($sourceId, ':u');
+        return $at === false ? [$sourceId, null] : [substr($sourceId, 0, $at), (int) substr($sourceId, $at + 2)];
+    }
+
+    /**
+     * The "already notified" key. It carries the recipient because the row is a
+     * per-user receipt: keyed on the match alone, the first follower's row
+     * silences everyone else following the same match.
+     */
+    private static function sourceId(string $matchId, int|string $userId): string
+    {
+        return "{$matchId}:u{$userId}";
     }
 
     /** True when $iso starts between now and NOTIFY_WINDOW from now. */

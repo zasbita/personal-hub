@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class SheetsService
@@ -17,19 +18,35 @@ class SheetsService
         $this->privateKey = str_replace('\\n', "\n", config('services.google.private_key', ''));
     }
 
+    /**
+     * Google access token, cached just under its hour of life. Every Sheets call
+     * used to mint its own, so a single read cost two round trips to Google.
+     */
     private function getToken(): string
     {
-        $now = time();
-        $h = base64_encode(json_encode(['alg' => 'RS256', 'typ' => 'JWT']));
-        $c = base64_encode(json_encode(['iss' => $this->saEmail, 'scope' => 'https://www.googleapis.com/auth/spreadsheets', 'aud' => 'https://oauth2.googleapis.com/token', 'exp' => $now + 3600, 'iat' => $now]));
-        $input = "{$h}.{$c}";
-        $sig = '';
-        openssl_sign($input, $sig, $this->privateKey, OPENSSL_ALGO_SHA256);
-        $jwt = "{$input}." . rtrim(strtr(base64_encode($sig), '+/', '-_'), '=');
-        $r = Http::asForm()->post('https://oauth2.googleapis.com/token', ['grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer', 'assertion' => $jwt]);
-        $d = $r->json();
-        if (!isset($d['access_token'])) throw new \RuntimeException('Google auth failed');
-        return $d['access_token'];
+        return Cache::remember('sheets.token', 3300, function () {
+            $now = time();
+            $h = self::b64url(json_encode(['alg' => 'RS256', 'typ' => 'JWT']));
+            $c = self::b64url(json_encode(['iss' => $this->saEmail, 'scope' => 'https://www.googleapis.com/auth/spreadsheets', 'aud' => 'https://oauth2.googleapis.com/token', 'exp' => $now + 3600, 'iat' => $now]));
+            $input = "{$h}.{$c}";
+            $sig = '';
+            openssl_sign($input, $sig, $this->privateKey, OPENSSL_ALGO_SHA256);
+            $jwt = "{$input}." . self::b64url($sig);
+            $r = Http::asForm()->timeout(15)->post('https://oauth2.googleapis.com/token', ['grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer', 'assertion' => $jwt]);
+            $d = $r->json();
+            if (!isset($d['access_token'])) throw new \RuntimeException("Google auth failed: {$r->body()}");
+            return $d['access_token'];
+        });
+    }
+
+    /**
+     * JWT segments must use the URL-safe alphabet. Plain base64 emits '+', '/'
+     * and padding, which Google rejects — and whether it does depends on the
+     * iat/exp bytes of the moment, so it failed only some of the time.
+     */
+    private static function b64url(string $raw): string
+    {
+        return rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');
     }
 
     private function sheetsGet(string $path): array
@@ -69,25 +86,54 @@ class SheetsService
         return $this->sheetsSend('POST', "/spreadsheets/{$this->sheetId}/values/A:E:append?valueInputOption=USER_ENTERED", ['values' => [[date('Y-m-d'), $amount, $desc, $cat, uuid_create()]]]);
     }
 
-    public function getWeeklyExpenses(): array
+    /**
+     * Spending over the last $days, oldest first, with per-category subtotals.
+     * @return array{total: float, items: array<int, array{date: string, amount: float, description: string, category: string}>, byCategory: array<string, float>}
+     */
+    public function getRecentExpenses(int $days = 7): array
+    {
+        return $this->getExpensesSince(new \DateTime("-{$days} days"));
+    }
+
+    /** Same shape as getRecentExpenses, from an explicit starting point. */
+    public function getExpensesSince(\DateTimeInterface $since): array
     {
         $d = $this->sheetsGet("/spreadsheets/{$this->sheetId}/values/A:D");
         $rows = $d['values'] ?? [];
-        if (empty($rows)) return ['total' => 0, 'items' => []];
-        $ago = new \DateTime('-7 days');
+        if (empty($rows)) return ['total' => 0, 'items' => [], 'byCategory' => []];
+        $ago = $since;
         $now = new \DateTime();
         $total = 0;
         $items = [];
+        $byCategory = [];
         $start = is_numeric($rows[0][1] ?? '') ? 0 : 1;
         for ($i = $start; $i < count($rows); $i++) {
             $r = $rows[$i];
             if (count($r) < 3) continue;
+            if (!is_numeric($r[1])) continue; // a stray note in the amount column
             $amt = (float) $r[1];
-            if (is_nan($amt)) continue;
             $dt = new \DateTime($r[0]);
-            if ($dt >= $ago && $dt <= $now) { $total += $amt; $items[] = ['date' => $r[0], 'amount' => $amt, 'description' => $r[2], 'category' => $r[3] ?? 'General']; }
+            if ($dt < $ago || $dt > $now) continue;
+            $cat = ($r[3] ?? '') ?: 'General';
+            $total += $amt;
+            $items[] = ['date' => $r[0], 'amount' => $amt, 'description' => $r[2], 'category' => $cat];
+            $byCategory[$cat] = ($byCategory[$cat] ?? 0) + $amt;
         }
-        return ['total' => $total, 'items' => $items];
+        arsort($byCategory);
+        return ['total' => $total, 'items' => $items, 'byCategory' => $byCategory];
+    }
+
+    /** Total spent since the 1st of this month, for the budget line. */
+    public function spentThisMonth(): float
+    {
+        return $this->getExpensesSince(new \DateTime('first day of this month midnight'))['total'];
+    }
+
+    /** The most recently appended expense, or null when the sheet is empty. */
+    public function lastExpense(): ?array
+    {
+        $all = $this->listExpenses();
+        return $all ? $all[count($all) - 1] : null;
     }
 
     public function updateExpenseRow(int $row, array $vals): void

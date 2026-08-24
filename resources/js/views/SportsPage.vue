@@ -9,6 +9,7 @@
         <Plus class="w-4 h-4" /> Tambah Jadwal
       </button>
     </div>
+    <div v-if="loadError" class="p-4 rounded border border-error/40 text-error text-center">Gagal memuat data. Coba muat ulang halaman.</div>
     <section class="space-y-4">
       <h2 class="text-2xl font-semibold text-on-surface tracking-[-0.02em]">Pertandingan Mendatang</h2>
       <div class="bg-surface-container border border-outline-variant/20 rounded-lg backdrop-blur-md">
@@ -16,8 +17,8 @@
         <div v-else class="divide-y divide-outline-variant/10">
           <div v-for="m in matches" :key="m.id" class="p-4 flex items-center gap-3">
             <Zap class="w-5 h-5 text-primary shrink-0" />
-            <div><p class="text-on-surface font-medium capitalize">{{ m.entity_name || m.sport_type }}</p>
-              <p class="text-sm text-on-surface-variant">{{ m.match_time ? new Date(m.match_time).toLocaleString('id-ID') : '' }}<template v-if="m.tournament"> • {{ m.tournament }}</template><template v-if="m.home_team && m.away_team"> • {{ m.home_team }} vs {{ m.away_team }}</template></p></div>
+            <div><p class="text-on-surface font-medium capitalize">{{ m.home_team ? (m.away_team ? m.home_team + ' vs ' + m.away_team : m.home_team) : (m.competition || m.sport_type) }}</p>
+              <p class="text-sm text-on-surface-variant">{{ m.match_time ? new Date(m.match_time).toLocaleString('id-ID') : '' }}<template v-if="m.competition"> • {{ m.competition }}</template></p></div>
           </div>
         </div>
       </div>
@@ -48,16 +49,14 @@
           <form @submit.prevent="createMatch" class="space-y-4">
             <div><label class="block text-sm font-medium text-on-surface-variant mb-2">Jenis Olahraga</label>
               <select v-model="form.sport_type" class="w-full rounded-lg border border-outline-variant/30 bg-surface px-4 py-3 text-on-surface focus:border-primary focus:outline-none">
-                <option value="volleyball">Volley</option><option value="football">Sepak Bola</option><option value="basketball">Basket</option><option value="badminton">Bulu Tangkis</option><option value="tennis">Tenis</option></select></div>
-            <div><label class="block text-sm font-medium text-on-surface-variant mb-2">Nama Tim / Turnamen</label>
-              <input v-model="form.entity_name" type="text" required placeholder="Contoh: Timnas Putri Indonesia" class="w-full rounded-lg border border-outline-variant/30 bg-surface px-4 py-3 text-on-surface focus:border-primary focus:outline-none" /></div>
+                <option value="volly">Volley</option><option value="football">Sepak Bola</option><option value="basketball">Basket</option><option value="badminton">Bulu Tangkis</option><option value="tennis">Tenis</option></select></div>
             <div><label class="block text-sm font-medium text-on-surface-variant mb-2">Waktu Pertandingan</label>
               <input v-model="form.match_time" type="datetime-local" :min="now" required class="w-full rounded-lg border border-outline-variant/30 bg-surface px-4 py-3 text-on-surface focus:border-primary focus:outline-none" /></div>
             <div><label class="block text-sm font-medium text-on-surface-variant mb-2">Nama Turnamen (opsional)</label>
               <input v-model="form.tournament" type="text" placeholder="Contoh: AVC Challenge Cup" class="w-full rounded-lg border border-outline-variant/30 bg-surface px-4 py-3 text-on-surface focus:border-primary focus:outline-none" /></div>
             <div class="grid grid-cols-2 gap-4">
               <div><label class="block text-sm font-medium text-on-surface-variant mb-2">Tim Kandang</label>
-                <input v-model="form.home_team" type="text" placeholder="Home" class="w-full rounded-lg border border-outline-variant/30 bg-surface px-4 py-3 text-on-surface focus:border-primary focus:outline-none" /></div>
+                <input v-model="form.home_team" type="text" required placeholder="Home" class="w-full rounded-lg border border-outline-variant/30 bg-surface px-4 py-3 text-on-surface focus:border-primary focus:outline-none" /></div>
               <div><label class="block text-sm font-medium text-on-surface-variant mb-2">Tim Tandang</label>
                 <input v-model="form.away_team" type="text" placeholder="Away" class="w-full rounded-lg border border-outline-variant/30 bg-surface px-4 py-3 text-on-surface focus:border-primary focus:outline-none" /></div>
             </div>
@@ -80,13 +79,14 @@ const matches = ref([]);
 const prefs = ref([]);
 const loading = ref(true);
 const busyId = ref(null);
+const loadError = ref(false);
 const showModal = ref(false);
 const submitting = ref(false);
 const now = new Date().toISOString().slice(0, 16);
-const form = ref({ sport_type: 'volleyball', entity_name: '', match_time: '', tournament: '', home_team: '', away_team: '' });
-const fetchData = async () => { const [m, p] = await Promise.all([matchApi.list(), prefApi.list()]); matches.value = m || []; prefs.value = p || []; loading.value = false; };
+const form = ref({ sport_type: 'volly', match_time: '', tournament: '', home_team: '', away_team: '' });
+const fetchData = async () => { try { const [m, p] = await Promise.all([matchApi.list(), prefApi.list()]); matches.value = m || []; prefs.value = p || []; loadError.value = false; } catch (e) { loadError.value = true; } finally { loading.value = false; } };
 const toggleNotif = async (p) => { busyId.value = p.id; try { await prefApi.update(p.id, !p.notification_enabled); await fetchData(); } finally { busyId.value = null; } };
 const handleDeletePref = async (id) => { if (!confirm('Berhenti memantau?')) return; busyId.value = id; try { await prefApi.remove(id); await fetchData(); } finally { busyId.value = null; } };
-const createMatch = async () => { submitting.value = true; try { await matchApi.create(form.value); showModal.value = false; form.value = { sport_type: 'volleyball', entity_name: '', match_time: '', tournament: '', home_team: '', away_team: '' }; await fetchData(); } catch (e) { alert('Gagal menambahkan jadwal'); } finally { submitting.value = false; } };
+const createMatch = async () => { submitting.value = true; try { await matchApi.create(form.value); showModal.value = false; form.value = { sport_type: 'volly', match_time: '', tournament: '', home_team: '', away_team: '' }; await fetchData(); } catch (e) { alert('Gagal menambahkan jadwal'); } finally { submitting.value = false; } };
 onMounted(fetchData);
 </script>

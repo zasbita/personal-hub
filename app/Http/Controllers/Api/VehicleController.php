@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\SupabaseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class VehicleController extends Controller
 {
@@ -17,7 +18,10 @@ class VehicleController extends Controller
             if (!$d) return response()->json(['remaining_km' => 0, 'status' => 'No data']);
             $rem = max(0, $d['next_service_km'] - $d['last_km']);
             return response()->json(['remaining_km' => $rem, 'last_km' => $d['last_km'], 'next_service_km' => $d['next_service_km'], 'status' => $rem <= 500 ? '⚠️ Service Due Soon' : '✅ Good Condition']);
-        } catch (\Exception $e) { return response()->json(['remaining_km' => 0, 'status' => 'Error loading data']); }
+        } catch (\Exception $e) {
+            Log::error("Vehicle status failed: {$e->getMessage()}");
+            return response()->json(['error' => 'Failed to fetch vehicle status'], 500);
+        }
     }
 
     public function update(Request $request): JsonResponse

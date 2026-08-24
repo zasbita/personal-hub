@@ -4,6 +4,7 @@
       <h1 class="text-5xl font-semibold text-on-surface tracking-[-0.02em] leading-[1.1]">Dashboard</h1>
       <p class="text-lg text-on-surface-variant max-w-2xl leading-relaxed">Welcome back! Here's your financial and vehicle status at a glance.</p>
     </div>
+    <div v-if="loadError" class="p-4 rounded border border-error/40 text-error text-center">Gagal memuat data. Coba muat ulang halaman.</div>
     <section class="space-y-6">
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         <StatCard title="Total Expenses (Month)" :value="`Rp ${(stats?.total || 0).toLocaleString('id-ID')}`">
@@ -54,11 +55,12 @@ const vehicle = ref(null);
 const matchCount = ref(0);
 const recentExpenses = ref([]);
 const loading = ref(true);
+const loadError = ref(false);
 onMounted(async () => {
   try {
     const [s, v, m, e] = await Promise.all([expApi.stats(), vehApi.get(), matchApi.list(), expApi.list(10)]);
     stats.value = s; vehicle.value = v; matchCount.value = m?.length || 0;
     recentExpenses.value = (e || []).sort((a, b) => new Date(b.date) - new Date(a.date));
-  } finally { loading.value = false; }
+  } catch (e) { loadError.value = true; } finally { loading.value = false; }
 });
 </script>

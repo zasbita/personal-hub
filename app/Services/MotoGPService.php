@@ -14,6 +14,9 @@ class MotoGPService
     /** Race sessions worth a notification: the GP, the sprint, and multi-race classes. */
     private const RACE_SESSIONS = ['RAC', 'SPR', 'RAC1', 'RAC2'];
 
+    /** Words every race name carries, so they identify nothing. */
+    private const FILLER = ['grand', 'grande', 'prix', 'gran', 'premio', 'the', 'and'];
+
     private ?array $events = null;
 
     /**
@@ -67,11 +70,25 @@ class MotoGPService
         return array_values(array_unique($names));
     }
 
+    /**
+     * A followed race matches when the two names share a distinctive word.
+     * Comparing the raw strings matched on the boilerplate instead — every race
+     * starts with "GRAND PRIX", so following one GP notified you about all of them.
+     */
     public function matchesRace(string $raceName, string $search): bool
     {
-        $l = strtolower($raceName);
-        $s = strtolower($search);
-        return str_contains($l, $s) || str_contains($s, explode(' ', $l)[0] ?? '');
+        return (bool) array_intersect(self::keywords($raceName), self::keywords($search));
+    }
+
+    /**
+     * The words that actually identify a race: the circuit, country or sponsor.
+     * @return string[]
+     */
+    private static function keywords(string $name): array
+    {
+        $words = preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        // Short fragments ("d" of "d'Italia") would match across unrelated races.
+        return array_values(array_filter($words, fn($w) => mb_strlen($w) >= 3 && !in_array($w, self::FILLER, true)));
     }
 
     public function formatRaceInfo(array $race): string

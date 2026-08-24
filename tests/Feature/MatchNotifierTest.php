@@ -130,6 +130,114 @@ class MatchNotifierTest extends TestCase
         $this->assertSame([], $this->telegramTexts());
     }
 
+    public function test_a_match_already_notified_to_one_follower_still_reaches_the_others(): void
+    {
+        Cache::flush();
+        Http::fake([
+            '*/rest/v1/user_preferences*' => Http::response([
+                ['user_id' => 123, 'sport_type' => 'volly', 'entity_id' => 'indonesia', 'entity_name' => 'Indonesia', 'notification_enabled' => true],
+                ['user_id' => 456, 'sport_type' => 'volly', 'entity_id' => 'indonesia', 'entity_name' => 'Indonesia', 'notification_enabled' => true],
+            ]),
+            // Game 99 was already announced to user 123 only.
+            '*/rest/v1/match_schedule*' => function ($request) {
+                $seen = $request->method() === 'GET' && str_contains(urldecode($request->url()), 'source_id=eq.99:u123');
+                return Http::response($seen ? [['id' => 'existing-row']] : []);
+            },
+            '*volleyball.api-sports.io/games*' => Http::response(['response' => [
+                ['id' => 99, 'date' => now()->addMinutes(30)->toIso8601String(), 'status' => ['short' => 'NS'], 'league' => ['name' => 'L'],
+                 'teams' => ['home' => ['name' => 'Indonesia W'], 'away' => ['name' => 'Japan W']]],
+            ]]),
+            'api.telegram.org/*' => Http::response(['ok' => true]),
+        ]);
+
+        $this->artisan('bot:notify')->assertExitCode(0);
+
+        $recipients = collect(Http::recorded())
+            ->filter(fn($pair) => str_contains($pair[0]->url(), 'api.telegram.org'))
+            ->map(fn($pair) => $pair[0]['chat_id'])
+            ->values()->all();
+        $this->assertSame([456], $recipients);
+    }
+
+    public function test_a_message_telegram_cannot_parse_is_resent_as_plain_text(): void
+    {
+        Cache::flush();
+        $attempts = 0;
+        Http::fake([
+            '*/rest/v1/user_preferences*' => Http::response([
+                ['user_id' => 7, 'sport_type' => 'volly', 'entity_id' => 'indonesia', 'entity_name' => 'Indonesia', 'notification_enabled' => true],
+            ]),
+            '*/rest/v1/match_schedule*' => Http::response([]),
+            '*volleyball.api-sports.io/games*' => Http::response(['response' => [
+                ['id' => 99, 'date' => now()->addMinutes(30)->toIso8601String(), 'status' => ['short' => 'NS'], 'league' => ['name' => 'Liga_1'],
+                 'teams' => ['home' => ['name' => 'Indonesia W'], 'away' => ['name' => 'Japan W']]],
+            ]]),
+            'api.telegram.org/*' => function ($request) use (&$attempts) {
+                $attempts++;
+                return isset($request['parse_mode'])
+                    ? Http::response(['ok' => false, 'description' => "can't parse entities"], 400)
+                    : Http::response(['ok' => true]);
+            },
+        ]);
+
+        $this->artisan('bot:notify')->assertExitCode(0);
+
+        $this->assertSame(2, $attempts, 'expected a Markdown attempt then a plain-text retry');
+    }
+
+    public function test_a_finished_match_gets_its_score_reported_once(): void
+    {
+        Cache::flush();
+        Http::fake([
+            '*/rest/v1/user_preferences*' => Http::response([]),
+            '*/rest/v1/match_schedule*' => function ($request) {
+                if ($request->method() !== 'GET') return Http::response([]);
+                return Http::response([[
+                    'id' => 'row-1', 'source_id' => '55:u7', 'sport_type' => 'football',
+                    'home_team' => 'Liverpool', 'away_team' => 'Arsenal', 'competition' => 'Premier League',
+                ]]);
+            },
+            '*football.api-sports.io/fixtures*' => Http::response(['response' => [
+                ['fixture' => ['id' => 55, 'status' => ['short' => 'FT']], 'goals' => ['home' => 2, 'away' => 1]],
+            ]]),
+            'api.telegram.org/*' => Http::response(['ok' => true]),
+        ]);
+
+        $this->artisan('bot:notify')->assertExitCode(0);
+
+        $texts = $this->telegramTexts();
+        $this->assertCount(1, $texts, json_encode($texts, JSON_UNESCAPED_UNICODE));
+        $this->assertStringContainsString('Liverpool *2 - 1* Arsenal', $texts[0]);
+        // The row is marked so the next run does not report it again.
+        Http::assertSent(fn($request) => $request->method() === 'PATCH'
+            && str_contains($request->url(), 'match_schedule')
+            && str_contains($request->url(), 'id=eq.row-1')
+            && $request['status'] === 'FT');
+    }
+
+    public function test_a_match_still_in_play_is_not_reported(): void
+    {
+        Cache::flush();
+        Http::fake([
+            '*/rest/v1/user_preferences*' => Http::response([]),
+            '*/rest/v1/match_schedule*' => function ($request) {
+                if ($request->method() !== 'GET') return Http::response([]);
+                return Http::response([[
+                    'id' => 'row-1', 'source_id' => '55:u7', 'sport_type' => 'football',
+                    'home_team' => 'Liverpool', 'away_team' => 'Arsenal', 'competition' => 'Premier League',
+                ]]);
+            },
+            '*football.api-sports.io/fixtures*' => Http::response(['response' => [
+                ['fixture' => ['id' => 55, 'status' => ['short' => '2H']], 'goals' => ['home' => 1, 'away' => 1]],
+            ]]),
+            'api.telegram.org/*' => Http::response(['ok' => true]),
+        ]);
+
+        $this->artisan('bot:notify')->assertExitCode(0);
+
+        $this->assertSame([], $this->telegramTexts());
+    }
+
     /** @return string[] */
     private function telegramTexts(): array
     {

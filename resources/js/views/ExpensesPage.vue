@@ -10,6 +10,7 @@
     </div>
     <div class="bg-surface-container border border-outline-variant/20 rounded-lg backdrop-blur-md">
       <div v-if="loading" class="p-6 text-center text-on-surface-variant">Loading...</div>
+      <div v-else-if="loadError" class="p-6 text-center text-error">Gagal memuat pengeluaran. Coba muat ulang halaman.</div>
       <div v-else-if="expenses.length === 0" class="p-6 text-center text-on-surface-variant">Belum ada data pengeluaran</div>
       <div v-else class="overflow-x-auto">
         <table class="w-full">
@@ -62,7 +63,8 @@ const loading = ref(true);
 const editingId = ref(null);
 const draft = ref({ description: '', amount: '', category: '' });
 const busyId = ref(null);
-const fetchData = async () => { const [list, stat] = await Promise.all([expApi.list(50), expApi.stats()]); expenses.value = list || []; stats.value = stat; loading.value = false; };
+const loadError = ref(false);
+const fetchData = async () => { try { const [list, stat] = await Promise.all([expApi.list(50), expApi.stats()]); expenses.value = list || []; stats.value = stat; loadError.value = false; } catch (e) { loadError.value = true; } finally { loading.value = false; } };
 const startEdit = (exp) => { editingId.value = exp.id; draft.value = { description: exp.description, amount: String(exp.amount), category: exp.category || '' }; };
 const saveEdit = async (id) => { busyId.value = id; try { await expApi.update(id, draft.value); editingId.value = null; await fetchData(); } finally { busyId.value = null; } };
 const handleDelete = async (id) => { if (!confirm('Hapus pengeluaran ini?')) return; busyId.value = id; try { await expApi.remove(id); await fetchData(); } finally { busyId.value = null; } };

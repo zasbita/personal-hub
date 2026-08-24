@@ -29,7 +29,8 @@ php artisan test       # direct
 
 # Bot commands
 php artisan bot:listen    # Telegram long-polling
-php artisan bot:notify    # Match notifier (scheduled every 15min)
+php artisan bot:notify    # Match notifier + final scores (scheduled every 15min)
+php artisan bot:digest    # Weekly expense/budget/service digest (scheduled Mon 07:00 WIB)
 
 # Full setup from scratch
 composer setup
@@ -52,7 +53,8 @@ config/services.php     # Supabase, Google Sheets, Telegram, Football API keys
 - **No local DB for app data.** All reads/writes go to Supabase HTTP API or Google Sheets API. SQLite in phpunit.xml is only for framework internals (sessions, cache).
 - **SPA catch-all route.** `routes/web.php` serves `resources/views/app.blade.php` for all non-API paths. Vue Router handles client-side routing.
 - **Tailwind 4.** Uses `@theme` directive in `resources/css/app.css` for design tokens (Emerald Nocturne dark palette). No `tailwind.config.js`.
-- **API routes are plain** (`routes/api.php`) — no auth middleware. Supabase session handled client-side via localStorage + Axios interceptor.
+- **API auth is the `SupabaseAuth` middleware** (`app/Http/Middleware/SupabaseAuth.php`). Every dashboard route sits behind it; it validates the httpOnly `sb_access_token` cookie against Supabase `/auth/v1/user` and caches accepted tokens for 5 minutes. Only `/auth/login` (rate limited) and `/auth/logout` are open. The Vue router guard reading `localStorage` is UX only — never the security boundary.
+- **API cookies are not encrypted.** `routes/api.php` has no `EncryptCookies` middleware, so the session cookie is read and written verbatim. Tests must use `withCredentials()->withUnencryptedCookie(...)` to match.
 - **Null coalescing in string interpolation** — PHP 8.3 supports it but be careful with nested array access in double-quoted strings (use temp variables).
 - **Vite 8 + laravel-vite-plugin 3.** Vue plugin must be added manually in `vite.config.js`.
 
@@ -68,6 +70,7 @@ GOOGLE_PRIVATE_KEY=     # With \n escapes
 BOT_TOKEN=              # Telegram bot token
 OWNER_ID=811031481      # Telegram user ID whitelist
 FOOTBALL_API_KEY=       # api-football.com
+MONTHLY_BUDGET=0        # Optional. Rupiah; 0 hides the budget line
 ```
 
 ## Testing

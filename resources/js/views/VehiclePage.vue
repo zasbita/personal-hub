@@ -10,6 +10,7 @@
       </button>
     </div>
     <div v-if="loading" class="p-6 text-center text-on-surface-variant">Loading...</div>
+    <div v-else-if="loadError" class="p-6 text-center text-error">Gagal memuat data kendaraan. Coba muat ulang halaman.</div>
     <div v-else-if="editing" class="bg-surface-container border border-outline-variant/20 rounded-lg backdrop-blur-md p-6 space-y-4 max-w-md">
       <div><label class="block text-sm font-medium text-on-surface-variant mb-2">KM Terakhir</label>
         <input v-model="draft.last_km" type="number" class="w-full rounded border border-outline-variant/30 bg-surface px-3 py-2 text-on-surface focus:border-primary focus:outline-none" /></div>
@@ -38,7 +39,8 @@ const loading = ref(true);
 const editing = ref(false);
 const draft = ref({ last_km: '', next_service_km: '' });
 const busy = ref(false);
-const fetchData = async () => { vehicle.value = await vehApi.get(); loading.value = false; };
+const loadError = ref(false);
+const fetchData = async () => { try { vehicle.value = await vehApi.get(); loadError.value = false; } catch (e) { loadError.value = true; } finally { loading.value = false; } };
 const startEdit = () => { draft.value = { last_km: String(vehicle.value?.last_km ?? ''), next_service_km: String(vehicle.value?.next_service_km ?? '') }; editing.value = true; };
 const save = async () => { busy.value = true; try { await vehApi.update({ last_km: Number(draft.value.last_km), next_service_km: Number(draft.value.next_service_km) }); editing.value = false; await fetchData(); } finally { busy.value = false; } };
 onMounted(fetchData);
