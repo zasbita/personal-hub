@@ -35,6 +35,28 @@ class TelegramService
     }
 
     /**
+     * Point Telegram at $url and have it prove itself with $secret on every call.
+     * Registering a webhook also stops getUpdates working, by Telegram's design.
+     */
+    public function setWebhook(string $url, string $secret): array
+    {
+        $r = Http::timeout(15)->post("https://api.telegram.org/bot{$this->token}/setWebhook", [
+            'url' => $url,
+            'secret_token' => $secret,
+            'allowed_updates' => ['message'],
+        ]);
+        if ($r->failed()) throw new \RuntimeException("Telegram setWebhook failed: {$r->body()}");
+        return $r->json() ?? [];
+    }
+
+    public function getWebhookInfo(): array
+    {
+        $r = Http::timeout(15)->get("https://api.telegram.org/bot{$this->token}/getWebhookInfo");
+        if ($r->failed()) throw new \RuntimeException("Telegram getWebhookInfo failed: {$r->body()}");
+        return $r->json()['result'] ?? [];
+    }
+
+    /**
      * Publish the "/" menu Telegram renders in its own client.
      * @param array<string,string> $commands command => description
      */

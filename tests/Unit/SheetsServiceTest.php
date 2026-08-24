@@ -67,6 +67,28 @@ class SheetsServiceTest extends TestCase
         $this->assertNull((new SheetsService())->lastExpense());
     }
 
+    public function test_writes_actually_carry_a_body(): void
+    {
+        Http::fake([
+            '*oauth2.googleapis.com/token' => Http::response(['access_token' => 'a-token']),
+            '*sheets.googleapis.com/*' => Http::response(['done' => true]),
+        ]);
+        $s = new SheetsService();
+
+        $s->appendExpense(50000, 'Makan siang', 'General');
+        $s->updateExpenseRow(4, ['2026-08-24', 25000, 'Kopi', 'Jajan', 'id-2']);
+        $s->deleteExpenseRow(4);
+
+        $bodies = collect(Http::recorded())
+            ->filter(fn($pair) => str_contains($pair[0]->url(), 'sheets.googleapis.com'))
+            ->map(fn($pair) => $pair[0]->data())
+            ->values()->all();
+
+        $this->assertSame('Makan siang', $bodies[0]['values'][0][2]);
+        $this->assertSame('Kopi', $bodies[1]['values'][0][2]);
+        $this->assertSame(3, $bodies[2]['requests'][0]['deleteDimension']['range']['startIndex']);
+    }
+
     private function fakeSheet(string $pattern, array $values): void
     {
         Http::fake([

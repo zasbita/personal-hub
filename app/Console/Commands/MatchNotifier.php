@@ -53,6 +53,7 @@ class MatchNotifier extends Command
         try {
             $soon = array_filter($fetch(), fn($m) => $this->startsSoon($m['date']));
             if (empty($soon)) { $this->info("No {$sport} match starting soon"); return; }
+            $sent = 0;
             foreach ($prefs as $p) {
                 foreach ($soon as $m) {
                     if (!NameMatcher::matches($m['home'], $p['entity_name']) && !NameMatcher::matches($m['away'], $p['entity_name'])) continue;
@@ -62,8 +63,12 @@ class MatchNotifier extends Command
                     $tg->sendMessage((int) $p['user_id'], "{$emoji} *1 jam lagi!*\n{$m['home']} vs {$m['away']}\n🏆 {$m['league']}\n⏱️ " . DisplayTime::format($m['date']));
                     $s->insert('match_schedule', ['source_id' => $sid, 'sport_type' => $sport, 'competition' => $m['league'], 'home_team' => $m['home'], 'away_team' => $m['away'], 'match_time' => $m['date'], 'status' => 'NS', 'notified' => true]);
                     $this->info("Notified {$p['user_id']}: {$m['home']} vs {$m['away']}");
+                    $sent++;
                 }
             }
+            // Silence here used to be ambiguous: nothing upcoming, or upcoming but
+            // nobody follows the teams playing. Say which.
+            if ($sent === 0) $this->info(count($soon) . " {$sport} match(es) starting soon, none followed");
         } catch (\Throwable $e) {
             $this->error("{$sport} error: {$e->getMessage()}");
             $ownerId = (int) config('services.telegram.owner_id', 0);

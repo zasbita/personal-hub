@@ -28,7 +28,8 @@ php artisan test       # direct
 ./vendor/bin/pint
 
 # Bot commands
-php artisan bot:listen    # Telegram long-polling
+php artisan bot:listen    # Telegram long-polling (dev only; production uses the webhook)
+php artisan bot:webhook   # Point Telegram at POST /api/telegram/webhook + publish the / menu
 php artisan bot:notify    # Match notifier + final scores (scheduled every 15min)
 php artisan bot:digest    # Weekly expense/budget/service digest (scheduled Mon 07:00 WIB)
 
@@ -70,6 +71,7 @@ GOOGLE_PRIVATE_KEY=     # With \n escapes
 BOT_TOKEN=              # Telegram bot token
 OWNER_ID=811031481      # Telegram user ID whitelist
 FOOTBALL_API_KEY=       # api-football.com
+TELEGRAM_WEBHOOK_SECRET= # Any long random string; must match what bot:webhook registered
 MONTHLY_BUDGET=0        # Optional. Rupiah; 0 hides the budget line
 ```
 

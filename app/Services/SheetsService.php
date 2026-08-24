@@ -51,14 +51,16 @@ class SheetsService
 
     private function sheetsGet(string $path): array
     {
-        $r = Http::withToken($this->getToken())->get("https://sheets.googleapis.com/v4{$path}");
+        $r = Http::withToken($this->getToken())->timeout(15)->get("https://sheets.googleapis.com/v4{$path}");
         if ($r->failed()) throw new \RuntimeException("Sheets GET failed: {$r->body()}");
         return $r->json();
     }
 
     private function sheetsSend(string $method, string $path, array $body = []): array
     {
-        $r = Http::withToken($this->getToken())->withHeaders(['Content-Type' => 'application/json'])->send($method, "https://sheets.googleapis.com/v4{$path}", $body);
+        // send() takes Guzzle options, not a payload — passing the payload straight
+        // in sent an empty body, so every append, edit and delete was a no-op.
+        $r = Http::withToken($this->getToken())->timeout(15)->send($method, "https://sheets.googleapis.com/v4{$path}", ['json' => $body]);
         if ($r->failed()) throw new \RuntimeException("Sheets {$method} failed: {$r->body()}");
         return $r->json();
     }
