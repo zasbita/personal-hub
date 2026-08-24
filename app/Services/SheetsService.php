@@ -7,6 +7,14 @@ use Illuminate\Support\Facades\Http;
 
 class SheetsService
 {
+    /**
+     * The one tab every read and write targets. Ranges used to be written three
+     * ways — "Sheet1!A:E", a bare "A:D" (which means whichever tab is first), and
+     * a hardcoded numeric sheetId of 0 for deletes. Renaming or reordering tabs
+     * would have sent reads and writes to different places.
+     */
+    private const TAB = 'Sheet1';
+
     private string $sheetId;
     private string $saEmail;
     private string $privateKey;
@@ -67,7 +75,7 @@ class SheetsService
 
     public function listExpenses(): array
     {
-        $d = $this->sheetsGet("/spreadsheets/{$this->sheetId}/values/Sheet1!A:E");
+        $d = $this->sheetsGet("/spreadsheets/{$this->sheetId}/values/" . self::range('A:E'));
         $rows = $d['values'] ?? [];
         $out = [];
         foreach (array_slice($rows, 1) as $i => $r) {
@@ -85,7 +93,7 @@ class SheetsService
 
     public function appendExpense(float $amount, string $desc, string $cat): array
     {
-        return $this->sheetsSend('POST', "/spreadsheets/{$this->sheetId}/values/A:E:append?valueInputOption=USER_ENTERED", ['values' => [[date('Y-m-d'), $amount, $desc, $cat, uuid_create()]]]);
+        return $this->sheetsSend('POST', "/spreadsheets/{$this->sheetId}/values/" . self::range('A:E') . ":append?valueInputOption=USER_ENTERED", ['values' => [[date('Y-m-d'), $amount, $desc, $cat, uuid_create()]]]);
     }
 
     /**
@@ -100,7 +108,7 @@ class SheetsService
     /** Same shape as getRecentExpenses, from an explicit starting point. */
     public function getExpensesSince(\DateTimeInterface $since): array
     {
-        $d = $this->sheetsGet("/spreadsheets/{$this->sheetId}/values/A:D");
+        $d = $this->sheetsGet("/spreadsheets/{$this->sheetId}/values/" . self::range('A:D'));
         $rows = $d['values'] ?? [];
         if (empty($rows)) return ['total' => 0, 'items' => [], 'byCategory' => []];
         $ago = $since;
@@ -140,11 +148,33 @@ class SheetsService
 
     public function updateExpenseRow(int $row, array $vals): void
     {
-        $this->sheetsSend('PUT', "/spreadsheets/{$this->sheetId}/values/Sheet1!A{$row}:E{$row}?valueInputOption=USER_ENTERED", ['values' => [$vals]]);
+        $this->sheetsSend('PUT', "/spreadsheets/{$this->sheetId}/values/" . self::range("A{$row}:E{$row}") . "?valueInputOption=USER_ENTERED", ['values' => [$vals]]);
     }
 
     public function deleteExpenseRow(int $row): void
     {
-        $this->sheetsSend('POST', "/spreadsheets/{$this->sheetId}:batchUpdate", ['requests' => [['deleteDimension' => ['range' => ['sheetId' => 0, 'dimension' => 'ROWS', 'startIndex' => $row - 1, 'endIndex' => $row]]]]]);
+        $this->sheetsSend('POST', "/spreadsheets/{$this->sheetId}:batchUpdate", ['requests' => [['deleteDimension' => ['range' => ['sheetId' => $this->tabId(), 'dimension' => 'ROWS', 'startIndex' => $row - 1, 'endIndex' => $row]]]]]);
+    }
+
+    /** An A1 range on TAB, so no caller has to remember the tab name. */
+    private static function range(string $a1): string
+    {
+        return self::TAB . '!' . $a1;
+    }
+
+    /**
+     * The numeric id batchUpdate wants for TAB. Cached: tab ids only change when
+     * someone adds or removes a tab, and this would otherwise cost a round trip
+     * on every delete.
+     */
+    private function tabId(): int
+    {
+        return Cache::remember('sheets.tabid.' . self::TAB, 3600, function () {
+            $d = $this->sheetsGet("/spreadsheets/{$this->sheetId}?fields=sheets(properties(sheetId,title))");
+            foreach ($d['sheets'] ?? [] as $tab) {
+                if (($tab['properties']['title'] ?? '') === self::TAB) return (int) $tab['properties']['sheetId'];
+            }
+            throw new \RuntimeException('Sheets tab ' . self::TAB . ' not found');
+        });
     }
 }

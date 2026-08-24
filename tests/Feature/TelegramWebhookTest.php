@@ -60,8 +60,8 @@ class TelegramWebhookTest extends TestCase
     {
         Http::fake([
             '*oauth2.googleapis.com/token' => Http::response(['access_token' => 'a-token']),
-            '*/values/A:E:append*' => Http::response(['updates' => ['updatedRows' => 1]]),
-            '*/values/A:D*' => Http::response(['values' => [['Date', 'Amount', 'Description', 'Category']]]),
+            '*/values/*:append*' => Http::response(['updates' => ['updatedRows' => 1]]),
+            '*/values/*' => Http::response(['values' => [['Date', 'Amount', 'Description', 'Category']]]),
             'api.telegram.org/*' => Http::response(['ok' => true]),
         ]);
 

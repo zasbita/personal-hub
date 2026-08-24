@@ -75,7 +75,7 @@ class WeeklyDigestTest extends TestCase
     {
         Http::fake([
             '*oauth2.googleapis.com/token' => Http::response(['access_token' => 'a-token']),
-            '*/values/A:D*' => Http::response(['values' => $sheetRows]),
+            '*/values/*' => Http::response(['values' => $sheetRows]),
             '*/rest/v1/vehicle_service*' => Http::response($vehicle),
             'api.telegram.org/*' => Http::response(['ok' => true]),
         ]);
