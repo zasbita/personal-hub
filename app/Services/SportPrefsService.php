@@ -8,7 +8,11 @@ class SportPrefsService
     public const SPORTS = ['football', 'volly', 'motogp', 'moto2', 'moto3', 'baggers'];
 
     private SupabaseService $supabase;
-    public function __construct(SupabaseService $s) { $this->supabase = $s; }
+
+    public function __construct(SupabaseService $s)
+    {
+        $this->supabase = $s;
+    }
 
     public function addPreference(int $userId, string $sportType, string $entityId, string $entityName): void
     {
@@ -17,7 +21,9 @@ class SportPrefsService
         } catch (\RuntimeException $e) {
             if (str_contains($e->getMessage(), 'duplicate') || str_contains($e->getMessage(), '23505')) {
                 $this->supabase->update('user_preferences', ['notification_enabled' => true], ['user_id' => "eq.{$userId}", 'sport_type' => "eq.{$sportType}", 'entity_id' => "eq.{$entityId}"]);
-            } else throw $e;
+            } else {
+                throw $e;
+            }
         }
     }
 

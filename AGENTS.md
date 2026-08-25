@@ -81,3 +81,4 @@ MONTHLY_BUDGET=0        # Optional. Rupiah; 0 hides the budget line
 - Tests in `tests/Unit` and `tests/Feature`
 - Run single test: `php artisan test --filter=TestName`
 - Pest is available but not used — standard PHPUnit
+- **Rule: every feature/fix must create or update tests.** New controller/service/command → add `tests/Feature` or `tests/Unit`; bugfix → add regression test that fails without fix; refactor → keep coverage; do not ship without `composer test` green

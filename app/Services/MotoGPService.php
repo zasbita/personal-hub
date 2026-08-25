@@ -25,17 +25,27 @@ class MotoGPService
     public function getCurrentSeasonRaces(string $class = 'motogp'): array
     {
         $acronym = self::CLASSES[strtolower($class)] ?? null;
-        if (!$acronym) throw new \InvalidArgumentException("Unknown class {$class}");
+        if (! $acronym) {
+            throw new \InvalidArgumentException("Unknown class {$class}");
+        }
 
-        $now = new \DateTimeImmutable();
+        $now = new \DateTimeImmutable;
         $races = [];
         foreach ($this->events() as $e) {
-            if (($e['kind'] ?? '') !== 'GP') continue; // skip tests/shows
+            if (($e['kind'] ?? '') !== 'GP') {
+                continue;
+            } // skip tests/shows
             foreach ($e['broadcasts'] ?? [] as $b) {
-                if (($b['kind'] ?? '') !== 'RACE' || !in_array($b['shortname'] ?? '', self::RACE_SESSIONS, true)) continue;
-                if (($b['category']['acronym'] ?? '') !== $acronym) continue;
+                if (($b['kind'] ?? '') !== 'RACE' || ! in_array($b['shortname'] ?? '', self::RACE_SESSIONS, true)) {
+                    continue;
+                }
+                if (($b['category']['acronym'] ?? '') !== $acronym) {
+                    continue;
+                }
                 $dt = new \DateTimeImmutable($b['date_start']);
-                if ($dt <= $now) continue;
+                if ($dt <= $now) {
+                    continue;
+                }
                 $races[] = [
                     'round' => (string) ($e['sequence'] ?? 0),
                     'session' => $b['shortname'],
@@ -53,20 +63,26 @@ class MotoGPService
                 ];
             }
         }
-        usort($races, fn($a, $b) => ($a['date'] . $a['time']) <=> ($b['date'] . $b['time']));
+        usort($races, fn ($a, $b) => ($a['date'].$a['time']) <=> ($b['date'].$b['time']));
+
         return $races;
     }
 
     /** Race names left in the season, used to validate what a user follows. */
     public function upcomingRaceNames(): array
     {
-        $now = new \DateTimeImmutable();
+        $now = new \DateTimeImmutable;
         $names = [];
         foreach ($this->events() as $e) {
-            if (($e['kind'] ?? '') !== 'GP') continue;
-            if (new \DateTimeImmutable($e['date_end']) <= $now) continue;
+            if (($e['kind'] ?? '') !== 'GP') {
+                continue;
+            }
+            if (new \DateTimeImmutable($e['date_end']) <= $now) {
+                continue;
+            }
             $names[] = trim($e['name'] ?? '');
         }
+
         return array_values(array_unique($names));
     }
 
@@ -82,36 +98,45 @@ class MotoGPService
 
     /**
      * The words that actually identify a race: the circuit, country or sponsor.
+     *
      * @return string[]
      */
     private static function keywords(string $name): array
     {
         $words = preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
         // Short fragments ("d" of "d'Italia") would match across unrelated races.
-        return array_values(array_filter($words, fn($w) => mb_strlen($w) >= 3 && !in_array($w, self::FILLER, true)));
+        return array_values(array_filter($words, fn ($w) => mb_strlen($w) >= 3 && ! in_array($w, self::FILLER, true)));
     }
 
     public function formatRaceInfo(array $race): string
     {
         $session = $race['sessionName'] ?? '';
+
         return "🏍️ *{$race['raceName']}*"
-            . ($session ? "\n🏁 {$session}" : '')
-            . "\n🏟️ {$race['Circuit']['circuitName']}"
-            . "\n📍 {$race['Circuit']['Location']['locality']}, {$race['Circuit']['Location']['country']}"
-            . "\n⏱️ " . DisplayTime::format($race['date'] . 'T' . ($race['time'] ?? '00:00:00'));
+            .($session ? "\n🏁 {$session}" : '')
+            ."\n🏟️ {$race['Circuit']['circuitName']}"
+            ."\n📍 {$race['Circuit']['Location']['locality']}, {$race['Circuit']['Location']['country']}"
+            ."\n⏱️ ".DisplayTime::format($race['date'].'T'.($race['time'] ?? '00:00:00'));
     }
 
     /** Every event of the current season, with its session schedule. Fetched once per instance. */
     private function events(): array
     {
-        if ($this->events !== null) return $this->events;
+        if ($this->events !== null) {
+            return $this->events;
+        }
 
-        $r = Http::timeout(15)->get(self::API . '/results/seasons');
-        if ($r->failed()) throw new \RuntimeException('Failed to fetch MotoGP seasons');
+        $r = Http::timeout(15)->get(self::API.'/results/seasons');
+        if ($r->failed()) {
+            throw new \RuntimeException('Failed to fetch MotoGP seasons');
+        }
         $year = collect($r->json())->firstWhere('current', true)['year'] ?? (int) date('Y');
 
-        $r = Http::timeout(15)->get(self::API . '/events', ['seasonYear' => $year, 'isFinished' => 'false']);
-        if ($r->failed()) throw new \RuntimeException("Failed to fetch MotoGP {$year} events");
+        $r = Http::timeout(15)->get(self::API.'/events', ['seasonYear' => $year, 'isFinished' => 'false']);
+        if ($r->failed()) {
+            throw new \RuntimeException("Failed to fetch MotoGP {$year} events");
+        }
 
         return $this->events = $r->json() ?? [];
     }

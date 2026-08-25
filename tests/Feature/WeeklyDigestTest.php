@@ -84,8 +84,11 @@ class WeeklyDigestTest extends TestCase
     private function telegramText(): string
     {
         foreach (Http::recorded() as $pair) {
-            if (str_contains($pair[0]->url(), 'api.telegram.org')) return $pair[0]['text'];
+            if (str_contains($pair[0]->url(), 'api.telegram.org')) {
+                return $pair[0]['text'];
+            }
         }
+
         return '';
     }
 }

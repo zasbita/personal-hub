@@ -8,6 +8,16 @@ const routes = [
         meta: { guest: true },
     },
     {
+        path: '/profile',
+        name: 'profile',
+        component: () => import('../views/ProfilePage.vue'),
+        meta: { public: true },
+    },
+    {
+        path: '/cv',
+        redirect: '/profile',
+    },
+    {
         path: '/',
         component: () => import('../views/DashboardLayout.vue'),
         meta: { requiresAuth: true },
@@ -27,6 +37,10 @@ const router = createRouter({
 });
 
 router.beforeEach((to, from, next) => {
+    if (to.meta.public) {
+        next();
+        return;
+    }
     const user = localStorage.getItem('ph_user');
     if (to.meta.requiresAuth && !user) {
         next({ name: 'login' });

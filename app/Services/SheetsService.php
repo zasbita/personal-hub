@@ -16,7 +16,9 @@ class SheetsService
     private const TAB = 'Sheet1';
 
     private string $sheetId;
+
     private string $saEmail;
+
     private string $privateKey;
 
     public function __construct()
@@ -39,10 +41,13 @@ class SheetsService
             $input = "{$h}.{$c}";
             $sig = '';
             openssl_sign($input, $sig, $this->privateKey, OPENSSL_ALGO_SHA256);
-            $jwt = "{$input}." . self::b64url($sig);
+            $jwt = "{$input}.".self::b64url($sig);
             $r = Http::asForm()->timeout(15)->post('https://oauth2.googleapis.com/token', ['grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer', 'assertion' => $jwt]);
             $d = $r->json();
-            if (!isset($d['access_token'])) throw new \RuntimeException("Google auth failed: {$r->body()}");
+            if (! isset($d['access_token'])) {
+                throw new \RuntimeException("Google auth failed: {$r->body()}");
+            }
+
             return $d['access_token'];
         });
     }
@@ -60,7 +65,10 @@ class SheetsService
     private function sheetsGet(string $path): array
     {
         $r = Http::withToken($this->getToken())->timeout(15)->get("https://sheets.googleapis.com/v4{$path}");
-        if ($r->failed()) throw new \RuntimeException("Sheets GET failed: {$r->body()}");
+        if ($r->failed()) {
+            throw new \RuntimeException("Sheets GET failed: {$r->body()}");
+        }
+
         return $r->json();
     }
 
@@ -69,35 +77,47 @@ class SheetsService
         // send() takes Guzzle options, not a payload — passing the payload straight
         // in sent an empty body, so every append, edit and delete was a no-op.
         $r = Http::withToken($this->getToken())->timeout(15)->send($method, "https://sheets.googleapis.com/v4{$path}", ['json' => $body]);
-        if ($r->failed()) throw new \RuntimeException("Sheets {$method} failed: {$r->body()}");
+        if ($r->failed()) {
+            throw new \RuntimeException("Sheets {$method} failed: {$r->body()}");
+        }
+
         return $r->json();
     }
 
     public function listExpenses(): array
     {
-        $d = $this->sheetsGet("/spreadsheets/{$this->sheetId}/values/" . self::range('A:E'));
+        $d = $this->sheetsGet("/spreadsheets/{$this->sheetId}/values/".self::range('A:E'));
         $rows = $d['values'] ?? [];
         $out = [];
         foreach (array_slice($rows, 1) as $i => $r) {
-            if (empty($r[4])) continue;
+            if (empty($r[4])) {
+                continue;
+            }
             $out[] = ['row' => $i + 2, 'date' => $r[0] ?? '', 'amount' => (float) ($r[1] ?? 0), 'description' => $r[2] ?? '', 'category' => $r[3] ?? 'General', 'id' => $r[4] ?? ''];
         }
+
         return $out;
     }
 
     public function findExpenseById(string $id): ?array
     {
-        foreach ($this->listExpenses() as $e) { if ($e['id'] === $id) return $e; }
+        foreach ($this->listExpenses() as $e) {
+            if ($e['id'] === $id) {
+                return $e;
+            }
+        }
+
         return null;
     }
 
     public function appendExpense(float $amount, string $desc, string $cat): array
     {
-        return $this->sheetsSend('POST', "/spreadsheets/{$this->sheetId}/values/" . self::range('A:E') . ":append?valueInputOption=USER_ENTERED", ['values' => [[date('Y-m-d'), $amount, $desc, $cat, uuid_create()]]]);
+        return $this->sheetsSend('POST', "/spreadsheets/{$this->sheetId}/values/".self::range('A:E').':append?valueInputOption=USER_ENTERED', ['values' => [[date('Y-m-d'), $amount, $desc, $cat, uuid_create()]]]);
     }
 
     /**
      * Spending over the last $days, oldest first, with per-category subtotals.
+     *
      * @return array{total: float, items: array<int, array{date: string, amount: float, description: string, category: string}>, byCategory: array<string, float>}
      */
     public function getRecentExpenses(int $days = 7): array
@@ -108,28 +128,37 @@ class SheetsService
     /** Same shape as getRecentExpenses, from an explicit starting point. */
     public function getExpensesSince(\DateTimeInterface $since): array
     {
-        $d = $this->sheetsGet("/spreadsheets/{$this->sheetId}/values/" . self::range('A:D'));
+        $d = $this->sheetsGet("/spreadsheets/{$this->sheetId}/values/".self::range('A:D'));
         $rows = $d['values'] ?? [];
-        if (empty($rows)) return ['total' => 0, 'items' => [], 'byCategory' => []];
+        if (empty($rows)) {
+            return ['total' => 0, 'items' => [], 'byCategory' => []];
+        }
         $ago = $since;
-        $now = new \DateTime();
+        $now = new \DateTime;
         $total = 0;
         $items = [];
         $byCategory = [];
         $start = is_numeric($rows[0][1] ?? '') ? 0 : 1;
         for ($i = $start; $i < count($rows); $i++) {
             $r = $rows[$i];
-            if (count($r) < 3) continue;
-            if (!is_numeric($r[1])) continue; // a stray note in the amount column
+            if (count($r) < 3) {
+                continue;
+            }
+            if (! is_numeric($r[1])) {
+                continue;
+            } // a stray note in the amount column
             $amt = (float) $r[1];
             $dt = new \DateTime($r[0]);
-            if ($dt < $ago || $dt > $now) continue;
+            if ($dt < $ago || $dt > $now) {
+                continue;
+            }
             $cat = ($r[3] ?? '') ?: 'General';
             $total += $amt;
             $items[] = ['date' => $r[0], 'amount' => $amt, 'description' => $r[2], 'category' => $cat];
             $byCategory[$cat] = ($byCategory[$cat] ?? 0) + $amt;
         }
         arsort($byCategory);
+
         return ['total' => $total, 'items' => $items, 'byCategory' => $byCategory];
     }
 
@@ -143,12 +172,13 @@ class SheetsService
     public function lastExpense(): ?array
     {
         $all = $this->listExpenses();
+
         return $all ? $all[count($all) - 1] : null;
     }
 
     public function updateExpenseRow(int $row, array $vals): void
     {
-        $this->sheetsSend('PUT', "/spreadsheets/{$this->sheetId}/values/" . self::range("A{$row}:E{$row}") . "?valueInputOption=USER_ENTERED", ['values' => [$vals]]);
+        $this->sheetsSend('PUT', "/spreadsheets/{$this->sheetId}/values/".self::range("A{$row}:E{$row}").'?valueInputOption=USER_ENTERED', ['values' => [$vals]]);
     }
 
     public function deleteExpenseRow(int $row): void
@@ -159,7 +189,7 @@ class SheetsService
     /** An A1 range on TAB, so no caller has to remember the tab name. */
     private static function range(string $a1): string
     {
-        return self::TAB . '!' . $a1;
+        return self::TAB.'!'.$a1;
     }
 
     /**
@@ -169,12 +199,14 @@ class SheetsService
      */
     private function tabId(): int
     {
-        return Cache::remember('sheets.tabid.' . self::TAB, 3600, function () {
+        return Cache::remember('sheets.tabid.'.self::TAB, 3600, function () {
             $d = $this->sheetsGet("/spreadsheets/{$this->sheetId}?fields=sheets(properties(sheetId,title))");
             foreach ($d['sheets'] ?? [] as $tab) {
-                if (($tab['properties']['title'] ?? '') === self::TAB) return (int) $tab['properties']['sheetId'];
+                if (($tab['properties']['title'] ?? '') === self::TAB) {
+                    return (int) $tab['properties']['sheetId'];
+                }
             }
-            throw new \RuntimeException('Sheets tab ' . self::TAB . ' not found');
+            throw new \RuntimeException('Sheets tab '.self::TAB.' not found');
         });
     }
 }

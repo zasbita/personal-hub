@@ -9,6 +9,7 @@ use Tests\TestCase;
 class TelegramWebhookTest extends TestCase
 {
     private const OWNER = 811031481;
+
     private const SECRET = 'a-long-enough-webhook-secret';
 
     protected function setUp(): void
@@ -68,7 +69,7 @@ class TelegramWebhookTest extends TestCase
         $this->webhook($this->update('50k makan siang'))->assertStatus(200);
 
         $this->assertStringContainsString('Rp 50.000', $this->replies()[0]);
-        Http::assertSent(fn($request) => str_contains($request->url(), 'A:E:append')
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'A:E:append')
             && $request['values'][0][1] === 50000.0
             && $request['values'][0][2] === 'makan siang');
     }
@@ -115,8 +116,8 @@ class TelegramWebhookTest extends TestCase
     private function replies(): array
     {
         return collect(Http::recorded())
-            ->filter(fn($pair) => str_contains($pair[0]->url(), 'api.telegram.org'))
-            ->map(fn($pair) => $pair[0]['text'])
+            ->filter(fn ($pair) => str_contains($pair[0]->url(), 'api.telegram.org'))
+            ->map(fn ($pair) => $pair[0]['text'])
             ->values()->all();
     }
 }

@@ -21,6 +21,7 @@ class VolleyballService
                 $this->fetch(now()->format('Y-m-d')),
                 $this->fetch(now()->addDay()->format('Y-m-d')),
             );
+
             return array_values(array_column($all, null, 'id')); // a game can be listed under both dates
         });
     }
@@ -28,9 +29,10 @@ class VolleyballService
     /** Team names matching $query, for validating what a user follows. */
     public function searchTeams(string $query): array
     {
-        return Cache::remember('volleyball.teams.' . strtolower($query), now()->addDay(), function () use ($query) {
+        return Cache::remember('volleyball.teams.'.strtolower($query), now()->addDay(), function () use ($query) {
             $j = $this->request('/teams', ['search' => $query]);
-            return array_map(fn($t) => $t['name'], $j['response'] ?? []);
+
+            return array_map(fn ($t) => $t['name'], $j['response'] ?? []);
         });
     }
 
@@ -38,18 +40,28 @@ class VolleyballService
     public function getResult(string $id): ?array
     {
         $g = $this->request('/games', ['id' => $id])['response'][0] ?? null;
-        if (!$g || ($g['status']['short'] ?? '') !== 'FT') return null;
+        if (! $g || ($g['status']['short'] ?? '') !== 'FT') {
+            return null;
+        }
+
         return ['home' => (int) ($g['scores']['home'] ?? 0), 'away' => (int) ($g['scores']['away'] ?? 0)];
     }
 
     private function request(string $endpoint, array $params): array
     {
         $key = config('services.api_sports.key', '');
-        if (empty($key)) throw new \RuntimeException('API-Sports key not configured');
-        $r = Http::withHeaders(['x-apisports-key' => $key])->timeout(15)->get(self::API . $endpoint, $params);
-        if ($r->failed()) throw new \RuntimeException("API Volleyball Error: {$r->body()}");
+        if (empty($key)) {
+            throw new \RuntimeException('API-Sports key not configured');
+        }
+        $r = Http::withHeaders(['x-apisports-key' => $key])->timeout(15)->get(self::API.$endpoint, $params);
+        if ($r->failed()) {
+            throw new \RuntimeException("API Volleyball Error: {$r->body()}");
+        }
         $j = $r->json();
-        if (!empty($j['errors'])) throw new \RuntimeException('API Volleyball Error: ' . json_encode($j['errors']));
+        if (! empty($j['errors'])) {
+            throw new \RuntimeException('API Volleyball Error: '.json_encode($j['errors']));
+        }
+
         return $j;
     }
 
@@ -58,7 +70,9 @@ class VolleyballService
         $j = $this->request('/games', ['date' => $date]);
         $out = [];
         foreach ($j['response'] ?? [] as $g) {
-            if (($g['status']['short'] ?? '') !== 'NS') continue;
+            if (($g['status']['short'] ?? '') !== 'NS') {
+                continue;
+            }
             $out[] = [
                 'id' => (string) $g['id'],
                 'date' => $g['date'],
@@ -67,6 +81,7 @@ class VolleyballService
                 'league' => $g['league']['name'],
             ];
         }
+
         return $out;
     }
 }

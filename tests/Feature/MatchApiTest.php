@@ -27,9 +27,12 @@ class MatchApiTest extends TestCase
         ])->assertStatus(201);
 
         Http::assertSent(function ($request) {
-            if (!str_contains($request->url(), 'rest/v1/match_schedule') || $request->method() !== 'POST') return false;
+            if (! str_contains($request->url(), 'rest/v1/match_schedule') || $request->method() !== 'POST') {
+                return false;
+            }
+
             // entity_name is not a column on the table — sending it fails the insert.
-            return !array_key_exists('entity_name', $request->data())
+            return ! array_key_exists('entity_name', $request->data())
                 && $request['competition'] === 'AVC Cup'
                 && $request['home_team'] === 'Indonesia';
         });

@@ -18,14 +18,14 @@ class VolleyballServiceTest extends TestCase
             ['id' => 3, 'date' => '2099-01-01T14:00:00+00:00', 'status' => ['short' => 'CANC'], 'teams' => ['home' => ['name' => 'C'], 'away' => ['name' => 'D']], 'league' => ['name' => 'X']],
         ]])]);
 
-        $games = (new VolleyballService())->getUpcomingGames();
+        $games = (new VolleyballService)->getUpcomingGames();
 
         $this->assertSame(['1'], array_column($games, 'id')); // NS only, and a game listed under both dates counts once
         $this->assertSame('Indonesia W', $games[0]['home']);
         $this->assertSame('Asian Championship Women', $games[0]['league']);
         Http::assertSentCount(2);
 
-        (new VolleyballService())->getUpcomingGames();
+        (new VolleyballService)->getUpcomingGames();
         Http::assertSentCount(2); // served from cache
     }
 
@@ -34,6 +34,6 @@ class VolleyballServiceTest extends TestCase
         Cache::flush();
         Http::fake(['*/games*' => Http::response(['errors' => ['token' => 'invalid']])]);
         $this->expectException(\RuntimeException::class);
-        (new VolleyballService())->getUpcomingGames();
+        (new VolleyballService)->getUpcomingGames();
     }
 }

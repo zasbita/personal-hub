@@ -10,3 +10,5 @@ Schedule::command('bot:notify')->everyFifteenMinutes()->withoutOverlapping();
 Schedule::command('bot:digest')
     ->weeklyOn(1, '07:00')
     ->timezone(config('app.display_timezone', 'Asia/Jakarta'));
+
+Schedule::command('expenses:recurring')->dailyAt('07:00')->timezone(config('app.display_timezone', 'Asia/Jakarta'))->withoutOverlapping();

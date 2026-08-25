@@ -35,8 +35,11 @@ class NameMatcher
     {
         $a = strtolower(trim($apiName));
         $s = strtolower(trim($search, " \t\n\r\0\x0B\"'"));
-        if ($s === '') return false;
+        if ($s === '') {
+            return false;
+        }
         $s = self::ALIASES[$s] ?? $s;
+
         return $a === $s || $a === "{$s} w";
     }
 }

@@ -1,0 +1,12 @@
+{
+  "name": "Personal Hub",
+  "short_name": "Hub",
+  "description": "Serene Darwin — catat duit, motor, jadwal",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#131313",
+  "theme_color": "#4edea3",
+  "icons": [
+    { "src": "/favicon.ico", "sizes": "48x48", "type": "image/x-icon" }
+  ]
+}

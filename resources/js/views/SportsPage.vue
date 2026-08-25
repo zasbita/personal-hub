@@ -5,9 +5,14 @@
         <h1 class="text-5xl font-semibold text-on-surface tracking-[-0.02em] leading-[1.1]">Sports</h1>
         <p class="text-lg text-on-surface-variant max-w-2xl leading-relaxed">Jadwal pertandingan mendatang dan preferensi notifikasi.</p>
       </div>
-      <button @click="showModal = true" class="flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-primary-container text-on-primary-container rounded hover:bg-primary hover:text-on-primary transition-all active:scale-95">
-        <Plus class="w-4 h-4" /> Tambah Jadwal
-      </button>
+      <div class="flex items-center gap-2">
+        <button @click="window.location.href='/api/matches/export.ics'" class="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-outline-variant/30 text-on-surface rounded hover:bg-surface-container-highest transition-all">
+          <Calendar class="w-4 h-4" /> Export .ics
+        </button>
+        <button @click="showModal = true" class="flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-primary-container text-on-primary-container rounded hover:bg-primary hover:text-on-primary transition-all active:scale-95">
+          <Plus class="w-4 h-4" /> Tambah Jadwal
+        </button>
+      </div>
     </div>
     <div v-if="loadError" class="p-4 rounded border border-error/40 text-error text-center">Gagal memuat data. Coba muat ulang halaman.</div>
     <section class="space-y-4">
@@ -74,7 +79,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { matches as matchApi, preferences as prefApi } from '../api/client.js';
-import { Zap, Bell, BellOff, Trash2, Plus, X } from '@lucide/vue';
+import { Zap, Bell, BellOff, Trash2, Plus, X, Calendar } from '@lucide/vue';
 const matches = ref([]);
 const prefs = ref([]);
 const loading = ref(true);

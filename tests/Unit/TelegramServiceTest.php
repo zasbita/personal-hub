@@ -12,9 +12,9 @@ class TelegramServiceTest extends TestCase
     {
         Http::fake(['api.telegram.org/*' => Http::response(['ok' => true])]);
 
-        (new TelegramService())->setCommands(['log' => 'Catat pengeluaran', 'summary' => 'Ringkasan 7 hari']);
+        (new TelegramService)->setCommands(['log' => 'Catat pengeluaran', 'summary' => 'Ringkasan 7 hari']);
 
-        Http::assertSent(fn($request) => str_contains($request->url(), '/setMyCommands')
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/setMyCommands')
             && $request['commands'] === [
                 ['command' => 'log', 'description' => 'Catat pengeluaran'],
                 ['command' => 'summary', 'description' => 'Ringkasan 7 hari'],
@@ -26,12 +26,13 @@ class TelegramServiceTest extends TestCase
         $sent = [];
         Http::fake(['api.telegram.org/*' => function ($request) use (&$sent) {
             $sent[] = $request['parse_mode'] ?? null;
+
             return isset($request['parse_mode'])
                 ? Http::response(['ok' => false, 'description' => "can't parse entities"], 400)
                 : Http::response(['ok' => true]);
         }]);
 
-        (new TelegramService())->sendMessage(7, 'kopi_susu *50k');
+        (new TelegramService)->sendMessage(7, 'kopi_susu *50k');
 
         $this->assertSame(['Markdown', null], $sent);
     }

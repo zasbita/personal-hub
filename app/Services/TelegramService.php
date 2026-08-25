@@ -22,15 +22,21 @@ class TelegramService
         // (an underscore in an expense description is enough), so retry plain.
         if ($r->failed()) {
             $r = $this->post($chatId, $text, null);
-            if ($r->failed()) Log::warning("Telegram sendMessage failed: {$r->body()}");
+            if ($r->failed()) {
+                Log::warning("Telegram sendMessage failed: {$r->body()}");
+            }
         }
+
         return $r->json() ?? [];
     }
 
     public function getUpdates(int $offset = 0, int $timeout = 30): array
     {
         $r = Http::timeout($timeout + 10)->get("https://api.telegram.org/bot{$this->token}/getUpdates", ['offset' => $offset, 'timeout' => $timeout]);
-        if ($r->failed()) throw new \RuntimeException("Telegram getUpdates failed: {$r->body()}");
+        if ($r->failed()) {
+            throw new \RuntimeException("Telegram getUpdates failed: {$r->body()}");
+        }
+
         return $r->json();
     }
 
@@ -45,33 +51,47 @@ class TelegramService
             'secret_token' => $secret,
             'allowed_updates' => ['message'],
         ]);
-        if ($r->failed()) throw new \RuntimeException("Telegram setWebhook failed: {$r->body()}");
+        if ($r->failed()) {
+            throw new \RuntimeException("Telegram setWebhook failed: {$r->body()}");
+        }
+
         return $r->json() ?? [];
     }
 
     public function getWebhookInfo(): array
     {
         $r = Http::timeout(15)->get("https://api.telegram.org/bot{$this->token}/getWebhookInfo");
-        if ($r->failed()) throw new \RuntimeException("Telegram getWebhookInfo failed: {$r->body()}");
+        if ($r->failed()) {
+            throw new \RuntimeException("Telegram getWebhookInfo failed: {$r->body()}");
+        }
+
         return $r->json()['result'] ?? [];
     }
 
     /**
      * Publish the "/" menu Telegram renders in its own client.
-     * @param array<string,string> $commands command => description
+     *
+     * @param  array<string,string>  $commands  command => description
      */
     public function setCommands(array $commands): void
     {
         $list = [];
-        foreach ($commands as $command => $description) { $list[] = ['command' => $command, 'description' => $description]; }
+        foreach ($commands as $command => $description) {
+            $list[] = ['command' => $command, 'description' => $description];
+        }
         $r = Http::timeout(10)->post("https://api.telegram.org/bot{$this->token}/setMyCommands", ['commands' => $list]);
-        if ($r->failed()) Log::warning("Telegram setMyCommands failed: {$r->body()}");
+        if ($r->failed()) {
+            Log::warning("Telegram setMyCommands failed: {$r->body()}");
+        }
     }
 
     private function post(int $chatId, string $text, ?string $parseMode): Response
     {
         $payload = ['chat_id' => $chatId, 'text' => $text];
-        if ($parseMode !== null) $payload['parse_mode'] = $parseMode;
+        if ($parseMode !== null) {
+            $payload['parse_mode'] = $parseMode;
+        }
+
         return Http::timeout(10)->post("https://api.telegram.org/bot{$this->token}/sendMessage", $payload);
     }
 }

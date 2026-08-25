@@ -28,7 +28,7 @@ class SheetsServiceTest extends TestCase
             [now()->subDay()->format('Y-m-d'), 'catatan', 'Bukan angka', 'General'],
         ]);
 
-        $r = (new SheetsService())->getRecentExpenses(7);
+        $r = (new SheetsService)->getRecentExpenses(7);
 
         $this->assertSame(85000.0, $r['total']);
         $this->assertCount(3, $r['items']);
@@ -44,8 +44,8 @@ class SheetsServiceTest extends TestCase
             [now()->subDays(40)->format('Y-m-d'), '999000', 'Bulan lalu', 'General'],
         ]);
 
-        $this->assertSame(50000.0, (new SheetsService())->getRecentExpenses(7)['total']);
-        $this->assertSame(1049000.0, (new SheetsService())->getRecentExpenses(60)['total']);
+        $this->assertSame(50000.0, (new SheetsService)->getRecentExpenses(7)['total']);
+        $this->assertSame(1049000.0, (new SheetsService)->getRecentExpenses(60)['total']);
     }
 
     public function test_the_last_expense_is_the_bottom_row_of_the_sheet(): void
@@ -56,7 +56,7 @@ class SheetsServiceTest extends TestCase
             ['2026-08-21', '25000', 'Kopi', 'Jajan', 'id-2'],
         ]);
 
-        $last = (new SheetsService())->lastExpense();
+        $last = (new SheetsService)->lastExpense();
 
         $this->assertSame('id-2', $last['id']);
         $this->assertSame(3, $last['row']); // header is row 1
@@ -66,21 +66,21 @@ class SheetsServiceTest extends TestCase
     {
         $this->fakeSheet('A:E', [['Date', 'Amount', 'Description', 'Category', 'ID']]);
 
-        $this->assertNull((new SheetsService())->lastExpense());
+        $this->assertNull((new SheetsService)->lastExpense());
     }
 
     public function test_writes_actually_carry_a_body(): void
     {
         $this->fakeSheet('A:E', []);
-        $s = new SheetsService();
+        $s = new SheetsService;
 
         $s->appendExpense(50000, 'Makan siang', 'General');
         $s->updateExpenseRow(4, ['2026-08-24', 25000, 'Kopi', 'Jajan', 'id-2']);
         $s->deleteExpenseRow(4);
 
         $bodies = collect(Http::recorded())
-            ->filter(fn($pair) => str_contains($pair[0]->url(), 'sheets.googleapis.com') && $pair[0]->method() !== 'GET')
-            ->map(fn($pair) => $pair[0]->data())
+            ->filter(fn ($pair) => str_contains($pair[0]->url(), 'sheets.googleapis.com') && $pair[0]->method() !== 'GET')
+            ->map(fn ($pair) => $pair[0]->data())
             ->values()->all();
 
         $this->assertSame('Makan siang', $bodies[0]['values'][0][2]);
@@ -91,7 +91,7 @@ class SheetsServiceTest extends TestCase
     public function test_every_range_names_the_same_tab(): void
     {
         $this->fakeSheet('A:E', [['Date', 'Amount', 'Description', 'Category', 'ID']]);
-        $s = new SheetsService();
+        $s = new SheetsService;
 
         $s->listExpenses();
         $s->getRecentExpenses(7);
@@ -99,8 +99,8 @@ class SheetsServiceTest extends TestCase
         $s->updateExpenseRow(4, ['2026-08-24', 1000, 'Kopi', 'Jajan', 'id']);
 
         $ranges = collect(Http::recorded())
-            ->map(fn($pair) => urldecode($pair[0]->url()))
-            ->filter(fn($url) => str_contains($url, '/values/'))
+            ->map(fn ($pair) => urldecode($pair[0]->url()))
+            ->filter(fn ($url) => str_contains($url, '/values/'))
             ->values()->all();
 
         $this->assertCount(4, $ranges);
@@ -113,10 +113,13 @@ class SheetsServiceTest extends TestCase
     {
         $this->fakeSheet('A:E', [], tabId: 42);
 
-        (new SheetsService())->deleteExpenseRow(4);
+        (new SheetsService)->deleteExpenseRow(4);
 
         Http::assertSent(function ($request) {
-            if (!str_contains($request->url(), 'batchUpdate')) return false;
+            if (! str_contains($request->url(), 'batchUpdate')) {
+                return false;
+            }
+
             return $request['requests'][0]['deleteDimension']['range']['sheetId'] === 42;
         });
     }
@@ -130,6 +133,7 @@ class SheetsServiceTest extends TestCase
                 if (str_contains($url, 'fields=sheets')) {
                     return Http::response(['sheets' => [['properties' => ['sheetId' => $tabId, 'title' => 'Sheet1']]]]);
                 }
+
                 return Http::response(str_contains($url, $range) ? ['values' => $values] : ['values' => []]);
             },
         ]);

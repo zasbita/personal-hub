@@ -29,7 +29,7 @@ class MotoGPServiceTest extends TestCase
             ]),
         ]);
 
-        $races = (new MotoGPService())->getCurrentSeasonRaces('motogp');
+        $races = (new MotoGPService)->getCurrentSeasonRaces('motogp');
 
         $this->assertSame(['SPR', 'RAC'], array_column($races, 'session')); // sprint then Grand Prix, in start order
         $this->assertSame('GRAND PRIX OF ARAGON', $races[1]['raceName']);
@@ -38,21 +38,21 @@ class MotoGPServiceTest extends TestCase
         $this->assertSame('14:00:00+02:00', $races[1]['time']);
         $this->assertSame('AR', $races[1]['Circuit']['Location']['locality']);
         // 14:00 CEST is 19:00 in Jakarta
-        $this->assertStringContainsString('30/08/2099 19:00 WIB', (new MotoGPService())->formatRaceInfo($races[1]));
+        $this->assertStringContainsString('30/08/2099 19:00 WIB', (new MotoGPService)->formatRaceInfo($races[1]));
 
-        $moto2 = (new MotoGPService())->getCurrentSeasonRaces('moto2');
+        $moto2 = (new MotoGPService)->getCurrentSeasonRaces('moto2');
         $this->assertSame('12:15:00+02:00', $moto2[0]['time']);
     }
 
     public function test_unknown_class_is_rejected(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        (new MotoGPService())->getCurrentSeasonRaces('formula1');
+        (new MotoGPService)->getCurrentSeasonRaces('formula1');
     }
 
     public function test_a_followed_race_matches_only_its_own_round(): void
     {
-        $moto = new MotoGPService();
+        $moto = new MotoGPService;
 
         $this->assertTrue($moto->matchesRace('GRAND PRIX OF ARAGON', 'Aragon'));
         $this->assertTrue($moto->matchesRace('ARAGON GP', 'Aragon Grand Prix'));

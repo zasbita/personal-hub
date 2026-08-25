@@ -11,6 +11,7 @@ class SupabaseService
     private const TIMEOUT = 15;
 
     private string $url;
+
     private string $key;
 
     public function __construct()
@@ -32,21 +33,28 @@ class SupabaseService
     public function select(string $table, array $params = []): array
     {
         $q = http_build_query($params);
-        $r = $this->client()->get("{$this->url}/rest/v1/{$table}" . ($q ? "?{$q}" : ''));
-        if ($r->failed()) throw new \RuntimeException("Supabase select failed: {$r->body()}");
+        $r = $this->client()->get("{$this->url}/rest/v1/{$table}".($q ? "?{$q}" : ''));
+        if ($r->failed()) {
+            throw new \RuntimeException("Supabase select failed: {$r->body()}");
+        }
+
         return $r->json();
     }
 
     public function selectSingle(string $table, array $params = []): ?array
     {
         $result = $this->select($table, array_merge($params, ['limit' => 1]));
+
         return $result[0] ?? null;
     }
 
     public function insert(string $table, array $data): array
     {
         $r = $this->client()->post("{$this->url}/rest/v1/{$table}", $data);
-        if ($r->failed()) throw new \RuntimeException("Supabase insert failed: {$r->body()}");
+        if ($r->failed()) {
+            throw new \RuntimeException("Supabase insert failed: {$r->body()}");
+        }
+
         return $r->json();
     }
 
@@ -54,7 +62,10 @@ class SupabaseService
     {
         $r = $this->client(['Prefer' => 'resolution=merge-duplicates,return=representation'])
             ->post("{$this->url}/rest/v1/{$table}", $data);
-        if ($r->failed()) throw new \RuntimeException("Supabase upsert failed: {$r->body()}");
+        if ($r->failed()) {
+            throw new \RuntimeException("Supabase upsert failed: {$r->body()}");
+        }
+
         return $r->json();
     }
 
@@ -62,7 +73,10 @@ class SupabaseService
     {
         $q = http_build_query($filters);
         $r = $this->client()->patch("{$this->url}/rest/v1/{$table}?{$q}", $data);
-        if ($r->failed()) throw new \RuntimeException("Supabase update failed: {$r->body()}");
+        if ($r->failed()) {
+            throw new \RuntimeException("Supabase update failed: {$r->body()}");
+        }
+
         return $r->json();
     }
 
@@ -70,6 +84,8 @@ class SupabaseService
     {
         $q = http_build_query($filters);
         $r = $this->client()->delete("{$this->url}/rest/v1/{$table}?{$q}");
-        if ($r->failed()) throw new \RuntimeException("Supabase delete failed: {$r->body()}");
+        if ($r->failed()) {
+            throw new \RuntimeException("Supabase delete failed: {$r->body()}");
+        }
     }
 }

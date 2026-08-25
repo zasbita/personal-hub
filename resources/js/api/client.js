@@ -31,6 +31,16 @@ export const expenses = {
 export const vehicle = {
     get: () => api.get('/vehicle'),
     update: (data) => api.patch('/vehicle', data),
+    list: () => api.get('/vehicles'),
+    create: (data) => api.post('/vehicles', data),
+    updateOne: (id, data) => api.patch(`/vehicles/${id}`, data),
+    removeOne: (id) => api.delete(`/vehicles/${id}`),
+};
+
+export const fuelLogs = {
+    list: (vehicleId) => api.get(`/vehicles/${vehicleId}/fuel-logs`),
+    create: (vehicleId, data) => api.post(`/vehicles/${vehicleId}/fuel-logs`, data),
+    remove: (vehicleId, id) => api.delete(`/vehicles/${vehicleId}/fuel-logs/${id}`),
 };
 
 export const matches = {
@@ -42,6 +52,19 @@ export const preferences = {
     list: () => api.get('/preferences'),
     update: (id, enabled) => api.patch(`/preferences/${id}`, { notification_enabled: enabled }),
     remove: (id) => api.delete(`/preferences/${id}`),
+};
+
+export const categoryBudgets = {
+    list: () => api.get('/category-budgets'),
+    create: (data) => api.post('/category-budgets', data),
+    update: (id, data) => api.patch(`/category-budgets/${id}`, data),
+    remove: (id) => api.delete(`/category-budgets/${id}`),
+};
+
+export const recurringExpenses = {
+    list: () => api.get('/recurring-expenses'),
+    create: (data) => api.post('/recurring-expenses', data),
+    remove: (id) => api.delete(`/recurring-expenses/${id}`),
 };
 
 export default api;
