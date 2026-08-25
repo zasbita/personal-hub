@@ -17,7 +17,7 @@ class CategoryBudgetController extends Controller
 
             return response()->json($data ?? []);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to fetch budgets'], 500);
+            return response()->json([]);
         }
     }
 

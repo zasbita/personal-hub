@@ -60,7 +60,8 @@ class VehicleController extends Controller
 
             return response()->json($data ?? []);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to fetch'], 500);
+            // Table may not exist yet before supabase/wave2.sql is run — return empty, not 500
+            return response()->json([]);
         }
     }
 
