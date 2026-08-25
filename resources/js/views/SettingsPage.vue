@@ -131,5 +131,5 @@ const handleRecCreate = async () => {
   try { await recApi.create({ amount: Number(recForm.value.amount), description: recForm.value.description.trim(), category: recForm.value.category.trim() || 'General', day_of_month: Number(recForm.value.day_of_month) }); recForm.value = { amount: '', description: '', category: '', day_of_month: '' }; await fetchRec(); } catch (e) { recError.value = e.response?.data?.message || 'Gagal simpan'; } finally { busy.value = false; }
 };
 const handleRecDelete = async (id) => { if (!confirm('Hapus recurring ini?')) return; busy.value = true; try { await recApi.remove(id); await fetchRec(); } finally { busy.value = false; } };
-onMounted(fetchRec);
+onMounted(() => { fetchBudgets(); fetchRec(); });
 </script>
