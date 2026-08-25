@@ -14,10 +14,13 @@ class FuelLogController extends Controller
         try {
             $s = new SupabaseService;
             $data = $s->select('fuel_logs', ['select' => '*', 'vehicle_id' => "eq.{$vehicleId}", 'order' => 'km.desc', 'limit' => 50]);
+            if (empty($data)) {
+                return response()->json(['error' => 'No fuel logs', 'data' => []], 404);
+            }
 
-            return response()->json($data ?? []);
+            return response()->json($data);
         } catch (\Exception $e) {
-            return response()->json([]);
+            return response()->json(['error' => 'Failed to fetch', 'data' => []], 404);
         }
     }
 

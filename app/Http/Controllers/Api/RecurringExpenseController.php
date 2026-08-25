@@ -14,10 +14,13 @@ class RecurringExpenseController extends Controller
         try {
             $s = new SupabaseService;
             $data = $s->select('recurring_expenses', ['select' => '*', 'user_id' => 'eq.'.config('services.telegram.owner_id'), 'order' => 'day_of_month.asc']);
+            if (empty($data)) {
+                return response()->json(['error' => 'No recurring expenses', 'data' => []], 404);
+            }
 
-            return response()->json($data ?? []);
+            return response()->json($data);
         } catch (\Exception $e) {
-            return response()->json([]);
+            return response()->json(['error' => 'Failed to fetch', 'data' => []], 404);
         }
     }
 

@@ -105,7 +105,7 @@ const formError = ref('');
 const editingId = ref(null);
 const editLimit = ref('');
 
-const fetchBudgets = async () => { try { budgets.value = await budgetApi.list() || []; } finally { loadingBudgets.value = false; } };
+const fetchBudgets = async () => { try { const d = await budgetApi.list(); budgets.value = Array.isArray(d) ? d : (d?.data || []); } catch (e) { if (e.response?.status === 404) budgets.value = []; } finally { loadingBudgets.value = false; } };
 const handleCreate = async () => {
   formError.value = '';
   if (!form.value.category.trim() || !form.value.monthly_limit) { formError.value = 'Isi kategori & limit'; return; }
@@ -123,7 +123,7 @@ const recurrings = ref([]);
 const loadingRec = ref(true);
 const recForm = ref({ amount: '', description: '', category: '', day_of_month: '' });
 const recError = ref('');
-const fetchRec = async () => { try { recurrings.value = await recApi.list() || []; } finally { loadingRec.value = false; } };
+const fetchRec = async () => { try { const d = await recApi.list(); recurrings.value = Array.isArray(d) ? d : (d?.data || []); } catch (e) { if (e.response?.status === 404) recurrings.value = []; } finally { loadingRec.value = false; } };
 const handleRecCreate = async () => {
   recError.value = '';
   if (!recForm.value.amount || !recForm.value.description || !recForm.value.day_of_month) { recError.value = 'Isi nominal, deskripsi, tgl'; return; }

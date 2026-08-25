@@ -57,11 +57,13 @@ class VehicleController extends Controller
         try {
             $s = new SupabaseService;
             $data = $s->select('vehicles', ['select' => '*', 'user_id' => 'eq.'.config('services.telegram.owner_id'), 'order' => 'created_at.asc']);
+            if (empty($data)) {
+                return response()->json(['error' => 'No vehicles', 'data' => []], 404);
+            }
 
-            return response()->json($data ?? []);
+            return response()->json($data);
         } catch (\Exception $e) {
-            // Table may not exist yet before supabase/wave2.sql is run — return empty, not 500
-            return response()->json([]);
+            return response()->json(['error' => 'Failed to fetch', 'data' => []], 404);
         }
     }
 
