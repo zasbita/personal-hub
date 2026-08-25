@@ -53,7 +53,12 @@ class FuelLogController extends Controller
 
             return response()->json($row[0] ?? $row, 201);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to create'], 500);
+            $msg = $e->getMessage();
+            if (str_contains($msg, 'PGRST205')) {
+                return response()->json(['error' => 'Tabel fuel_logs/vehicles belum ada — jalankan supabase/wave2.sql'], 503);
+            }
+
+            return response()->json(['error' => 'Failed to create: '.$msg], 500);
         }
     }
 

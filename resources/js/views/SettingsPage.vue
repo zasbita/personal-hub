@@ -110,7 +110,7 @@ const handleCreate = async () => {
   formError.value = '';
   if (!form.value.category.trim() || !form.value.monthly_limit) { formError.value = 'Isi kategori & limit'; return; }
   busy.value = true;
-  try { await budgetApi.create({ category: form.value.category.trim(), monthly_limit: Number(form.value.monthly_limit) }); form.value = { category: '', monthly_limit: '' }; await fetchBudgets(); } catch (e) { formError.value = e.response?.data?.message || 'Gagal simpan'; } finally { busy.value = false; }
+  try { await budgetApi.create({ category: form.value.category.trim(), monthly_limit: Number(form.value.monthly_limit) }); form.value = { category: '', monthly_limit: '' }; await fetchBudgets(); } catch (e) { formError.value = e.response?.data?.error || e.response?.data?.message || 'Gagal simpan'; } finally { busy.value = false; }
 };
 const startEdit = (b) => { editingId.value = b.id; editLimit.value = String(b.monthly_limit); };
 const handleUpdate = async (id) => { busy.value = true; try { await budgetApi.update(id, { monthly_limit: Number(editLimit.value) }); editingId.value = null; await fetchBudgets(); } finally { busy.value = false; } };
@@ -128,7 +128,7 @@ const handleRecCreate = async () => {
   recError.value = '';
   if (!recForm.value.amount || !recForm.value.description || !recForm.value.day_of_month) { recError.value = 'Isi nominal, deskripsi, tgl'; return; }
   busy.value = true;
-  try { await recApi.create({ amount: Number(recForm.value.amount), description: recForm.value.description.trim(), category: recForm.value.category.trim() || 'General', day_of_month: Number(recForm.value.day_of_month) }); recForm.value = { amount: '', description: '', category: '', day_of_month: '' }; await fetchRec(); } catch (e) { recError.value = e.response?.data?.message || 'Gagal simpan'; } finally { busy.value = false; }
+  try { await recApi.create({ amount: Number(recForm.value.amount), description: recForm.value.description.trim(), category: recForm.value.category.trim() || 'General', day_of_month: Number(recForm.value.day_of_month) }); recForm.value = { amount: '', description: '', category: '', day_of_month: '' }; await fetchRec(); } catch (e) { recError.value = e.response?.data?.error || e.response?.data?.message || 'Gagal simpan'; } finally { busy.value = false; }
 };
 const handleRecDelete = async (id) => { if (!confirm('Hapus recurring ini?')) return; busy.value = true; try { await recApi.remove(id); await fetchRec(); } finally { busy.value = false; } };
 onMounted(() => { fetchBudgets(); fetchRec(); });

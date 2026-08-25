@@ -134,7 +134,7 @@ const handleCreate = async () => {
   createError.value = '';
   if (!createForm.value.name.trim() || !createForm.value.last_km || !createForm.value.next_service_km) { createError.value = 'Isi nama & KM'; return; }
   busy.value = true;
-  try { await vehApi.create({ name: createForm.value.name.trim(), last_km: Number(createForm.value.last_km), next_service_km: Number(createForm.value.next_service_km) }); createForm.value = { name: '', last_km: '', next_service_km: '' }; showCreate.value = false; await fetchData(); } catch (e) { createError.value = e.response?.data?.message || 'Gagal tambah'; } finally { busy.value = false; }
+  try { await vehApi.create({ name: createForm.value.name.trim(), last_km: Number(createForm.value.last_km), next_service_km: Number(createForm.value.next_service_km) }); createForm.value = { name: '', last_km: '', next_service_km: '' }; showCreate.value = false; await fetchData(); } catch (e) { createError.value = e.response?.data?.error || e.response?.data?.message || 'Gagal tambah'; } finally { busy.value = false; }
 };
 const handleUpdateKm = async (id) => { const km = Number(editKm.value[id]); if (!km && km !== 0) return; busy.value = true; try { await vehApi.updateOne(id, { last_km: km }); editKm.value[id] = ''; await fetchData(); } finally { busy.value = false; } };
 const handleDeleteVehicle = async (id) => { if (!confirm('Hapus kendaraan ini?')) return; busy.value = true; try { await vehApi.removeOne(id); await fetchData(); } finally { busy.value = false; } };

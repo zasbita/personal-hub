@@ -45,7 +45,12 @@ class CategoryBudgetController extends Controller
 
             return response()->json($row[0] ?? $row, 201);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to create budget'], 500);
+            $msg = $e->getMessage();
+            if (str_contains($msg, 'PGRST205')) {
+                return response()->json(['error' => 'Tabel category_budgets belum ada — jalankan supabase/wave2.sql di Supabase Dashboard'], 503);
+            }
+
+            return response()->json(['error' => 'Failed to create budget: '.$msg], 500);
         }
     }
 
