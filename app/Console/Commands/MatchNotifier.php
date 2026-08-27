@@ -10,6 +10,7 @@ use App\Services\SportPrefsService;
 use App\Services\SupabaseService;
 use App\Services\TelegramService;
 use App\Services\VolleyballService;
+use App\Support\MatchHelper;
 use Illuminate\Console\Command;
 
 class MatchNotifier extends Command
@@ -18,7 +19,7 @@ class MatchNotifier extends Command
 
     protected $description = 'Check for live/upcoming matches and send notifications';
 
-    /** How long before kickoff/race start the notification goes out. */
+    /** @deprecated use MatchHelper::NOTIFY_WINDOW */
     private const NOTIFY_WINDOW = '+1 hour';
 
     public function handle(): int
@@ -84,9 +85,19 @@ class MatchNotifier extends Command
                     if (! NameMatcher::matches($m['home'], $p['entity_name']) && ! NameMatcher::matches($m['away'], $p['entity_name'])) {
                         continue;
                     }
-                    $sid = self::sourceId($m['id'], $p['user_id']);
-                    $ex = $s->select('match_schedule', ['select' => 'id', 'source_id' => "eq.{$sid}", 'sport_type' => "eq.{$sport}"]);
+                    $sid = MatchHelper::sourceId($m['id'], $p['user_id']);
+                    $ex = $s->select('match_schedule', ['select' => 'id,notified', 'source_id' => "eq.{$sid}", 'sport_type' => "eq.{$sport}"]);
                     if ($ex) {
+                        // H-1 row exists: if notified missing (legacy) or true -> skip; if false -> send and mark
+                        $notified = $ex[0]['notified'] ?? true;
+                        if ((bool) $notified) {
+                            continue;
+                        }
+                        $tg->sendMessage((int) $p['user_id'], "{$emoji} *1 jam lagi!*\n{$m['home']} vs {$m['away']}\n🏆 {$m['league']}\n⏱️ ".DisplayTime::format($m['date']));
+                        $s->update('match_schedule', ['notified' => true], ['id' => "eq.{$ex[0]['id']}"]);
+                        $this->info("Notified {$p['user_id']}: {$m['home']} vs {$m['away']} (updated H-1 row)");
+                        $sent++;
+
                         continue;
                     }
                     $tg->sendMessage((int) $p['user_id'], "{$emoji} *1 jam lagi!*\n{$m['home']} vs {$m['away']}\n🏆 {$m['league']}\n⏱️ ".DisplayTime::format($m['date']));
@@ -128,15 +139,24 @@ class MatchNotifier extends Command
             foreach ($prefs as $p) {
                 foreach ($all as $r) {
                     if ($moto->matchesRace($r['raceName'], $p['entity_name'])) {
-                        $sid = self::sourceId("{$r['classification']}-{$r['round']}-{$r['session']}", $p['user_id']);
-                        $ex = $s->select('match_schedule', ['select' => 'id', 'source_id' => "eq.{$sid}", 'sport_type' => "eq.{$r['classification']}"]);
-                        if (empty($ex)) {
+                        $sid = MatchHelper::sourceId("{$r['classification']}-{$r['round']}-{$r['session']}", $p['user_id']);
+                        $ex = $s->select('match_schedule', ['select' => 'id,notified', 'source_id' => "eq.{$sid}", 'sport_type' => "eq.{$r['classification']}"]);
+                        if (! empty($ex)) {
+                            $notified = $ex[0]['notified'] ?? true;
+                            if ((bool) $notified) {
+                                continue;
+                            }
                             $tg->sendMessage((int) $p['user_id'], '🏍️ *'.strtoupper($r['classification'])." 1 jam lagi!*\n\n".$moto->formatRaceInfo($r));
-                            $time = $r['time'] ?? '00:00:00';
-                            $loc = "{$r['Circuit']['Location']['locality']}, {$r['Circuit']['Location']['country']}";
-                            $s->insert('match_schedule', ['source_id' => $sid, 'sport_type' => $r['classification'], 'competition' => $r['raceName'], 'home_team' => $r['Circuit']['circuitName'], 'away_team' => $loc, 'match_time' => "{$r['date']}T{$time}", 'status' => 'scheduled', 'notified' => true]);
-                            $this->info("Notified {$p['user_id']}: {$r['raceName']}");
+                            $s->update('match_schedule', ['notified' => true], ['id' => "eq.{$ex[0]['id']}"]);
+                            $this->info("Notified {$p['user_id']}: {$r['raceName']} (updated H-1 row)");
+
+                            continue;
                         }
+                        $tg->sendMessage((int) $p['user_id'], '🏍️ *'.strtoupper($r['classification'])." 1 jam lagi!*\n\n".$moto->formatRaceInfo($r));
+                        $time = $r['time'] ?? '00:00:00';
+                        $loc = "{$r['Circuit']['Location']['locality']}, {$r['Circuit']['Location']['country']}";
+                        $s->insert('match_schedule', ['source_id' => $sid, 'sport_type' => $r['classification'], 'competition' => $r['raceName'], 'home_team' => $r['Circuit']['circuitName'], 'away_team' => $loc, 'match_time' => "{$r['date']}T{$time}", 'status' => 'scheduled', 'notified' => true]);
+                        $this->info("Notified {$p['user_id']}: {$r['raceName']}");
                     }
                 }
             }
@@ -191,9 +211,7 @@ class MatchNotifier extends Command
      */
     private static function splitSourceId(string $sourceId): array
     {
-        $at = strrpos($sourceId, ':u');
-
-        return $at === false ? [$sourceId, null] : [substr($sourceId, 0, $at), (int) substr($sourceId, $at + 2)];
+        return MatchHelper::splitSourceId($sourceId);
     }
 
     /**
@@ -203,18 +221,12 @@ class MatchNotifier extends Command
      */
     private static function sourceId(string $matchId, int|string $userId): string
     {
-        return "{$matchId}:u{$userId}";
+        return MatchHelper::sourceId($matchId, $userId);
     }
 
     /** True when $iso starts between now and NOTIFY_WINDOW from now. */
     private function startsSoon(string $iso): bool
     {
-        if ($iso === '') {
-            return false;
-        }
-        $dt = new \DateTimeImmutable($iso);
-        $now = new \DateTimeImmutable;
-
-        return $dt > $now && $dt <= $now->modify(self::NOTIFY_WINDOW);
+        return MatchHelper::startsSoon($iso);
     }
 }
