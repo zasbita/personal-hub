@@ -42,8 +42,13 @@ class MobileLegendService
             $teams[] = $m['home'];
             $teams[] = $m['away'];
         }
+        $unique = array_values(array_unique(array_filter($teams)));
+        if (! empty($unique)) {
+            return $unique;
+        }
 
-        return array_values(array_unique($teams));
+        // ponytail: static fallback 9 MPL ID S18 teams — so /follow suggestion works even when MPL_API_URL empty / scrape fails
+        return ['ONIC', 'EVOS', 'RRQ', 'BTR', 'TLID', 'AE', 'GEEK', 'DEWA', 'NAVI'];
     }
 
     /**
@@ -54,12 +59,13 @@ class MobileLegendService
         $url = config('services.mpl.url', '');
         $key = config('services.mpl.key', '');
         if (empty($url)) {
-            // No provider configured yet — treat as empty until wired (ponytail: no crash, no extra dep)
             return [];
         }
+        // id-mpl.com scrape branch — official MPL ID schedule page (no key, cache 3h)
+        if (str_contains($url, 'id-mpl.com')) {
+            return $this->fetchFromIdMpl($url);
+        }
         $headers = $key ? ['x-api-key' => $key] : [];
-        // provisional endpoint: GET {url}/matches?date=YYYY-MM-DD
-        // tests fake via '*mpl*'
         $out = [];
         foreach ([now()->format('Y-m-d'), now()->addDay()->format('Y-m-d')] as $date) {
             $r = Http::withHeaders($headers)->timeout(15)->get(rtrim($url, '/').'/matches', ['date' => $date]);
@@ -68,10 +74,8 @@ class MobileLegendService
             }
             $j = $r->json();
             foreach ($j['data'] ?? $j['matches'] ?? $j['response'] ?? [] as $m) {
-                // normalize both provisional shapes: {id,date,home,away,league,status} or {match_id,match_date,team1,team2,tournament}
                 $status = strtolower($m['status'] ?? $m['state'] ?? 'ns');
                 if (! in_array($status, ['ns', 'scheduled', 'upcoming'], true) && ($status !== '')) {
-                    // if provider uses different status naming, peek at raw if possible
                     if (isset($m['status']) && strtolower($m['status']) !== 'ns') {
                         continue;
                     }
@@ -87,5 +91,47 @@ class MobileLegendService
         }
 
         return array_values(array_filter($out, fn ($m) => $m['date'] !== '' && $m['home'] !== ''));
+    }
+
+    /**
+     * Scrape https://id-mpl.com/schedule → [{id,date,home,away,league}]
+     * Pattern: "BTR\nVS\nNAVI\n28 Agt · 15:00" (WIB → UTC)
+     */
+    private function fetchFromIdMpl(string $baseUrl): array
+    {
+        $html = Http::timeout(15)->get(rtrim($baseUrl, '/').'/schedule')->body();
+        if (! $html) {
+            return [];
+        }
+        // Normalize whitespace
+        $text = strip_tags($html);
+        $text = html_entity_decode($text);
+        // Match team VS team + date "28 Agt · 15:00"
+        preg_match_all('/([A-Z]{2,6})\s+VS\s+([A-Z]{2,6})\s+(\d{1,2})\s+(\w{3,4})\s*[·\.]\s*(\d{1,2}:\d{2})/u', $text, $m, PREG_SET_ORDER);
+        $months = ['jan' => '01', 'feb' => '02', 'mar' => '03', 'apr' => '04', 'mei' => '05', 'jun' => '06', 'jul' => '07', 'agt' => '08', 'sep' => '09', 'okt' => '10', 'nov' => '11', 'des' => '12'];
+        $year = (int) now()->format('Y');
+        $out = [];
+        foreach ($m as $hit) {
+            $home = trim($hit[1]);
+            $away = trim($hit[2]);
+            $day = str_pad($hit[3], 2, '0', STR_PAD_LEFT);
+            $monKey = strtolower($hit[4]);
+            $mon = $months[$monKey] ?? null;
+            if (! $mon) {
+                continue;
+            }
+            $time = $hit[5];
+            // WIB (UTC+7) → UTC
+            try {
+                $dtWib = new \DateTimeImmutable("{$year}-{$mon}-{$day} {$time}:00", new \DateTimeZone('Asia/Jakarta'));
+                $dtUtc = $dtWib->setTimezone(new \DateTimeZone('UTC'));
+            } catch (\Throwable) {
+                continue;
+            }
+            $id = strtolower("{$home}-{$away}-{$year}{$mon}{$day}".str_replace(':', '', $time));
+            $out[] = ['id' => $id, 'date' => $dtUtc->format('Y-m-d\TH:i:sP'), 'home' => $home, 'away' => $away, 'league' => 'MPL ID S18'];
+        }
+
+        return array_values(array_filter($out, fn ($r) => $r['date'] !== ''));
     }
 }
