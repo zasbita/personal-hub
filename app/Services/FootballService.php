@@ -19,7 +19,16 @@ class FootballService
         return Cache::remember('football.upcoming', now()->addHours(3), function () {
             $all = [];
             for ($i = 0; $i < 7; $i++) {
-                $all = array_merge($all, $this->fetch(now()->addDays($i)->format('Y-m-d')));
+                try {
+                    $all = array_merge($all, $this->fetch(now()->addDays($i)->format('Y-m-d')));
+                } catch (\RuntimeException $e) {
+                    // Free plan 403 for date outside 26–28 Agt window → skip that date (ponytail: 7d window best-effort within quota)
+                    if (str_contains($e->getMessage(), 'Free plans do not have access')) {
+                        continue;
+                    }
+
+                    throw $e;
+                }
             }
 
             return array_values(array_column($all, null, 'id')); // a game can be listed under both dates

@@ -19,7 +19,15 @@ class VolleyballService
         return Cache::remember('volleyball.upcoming', now()->addHours(3), function () {
             $all = [];
             for ($i = 0; $i < 7; $i++) {
-                $all = array_merge($all, $this->fetch(now()->addDays($i)->format('Y-m-d')));
+                try {
+                    $all = array_merge($all, $this->fetch(now()->addDays($i)->format('Y-m-d')));
+                } catch (\RuntimeException $e) {
+                    if (str_contains($e->getMessage(), 'Free plans do not have access')) {
+                        continue;
+                    }
+
+                    throw $e;
+                }
             }
 
             return array_values(array_column($all, null, 'id')); // a game can be listed under both dates
