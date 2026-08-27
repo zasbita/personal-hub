@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\FootballService;
+use App\Services\FutsalService;
 use App\Services\MobileLegendService;
 use App\Services\MotoGPService;
 use App\Services\NameMatcher;
@@ -38,6 +39,7 @@ class MatchScheduler extends Command
             $vp = $by(['volly']);
             $mp = $by(['motogp', 'moto2', 'moto3', 'baggers']);
             $lp = $by(['mobilelegend']);
+            $fup = $by(['futsal']);
 
             if ($fp) {
                 $this->scheduleTeamSport($s, $fp, 'football', fn () => (new FootballService)->getUpcomingFixtures());
@@ -50,6 +52,9 @@ class MatchScheduler extends Command
             }
             if ($lp) {
                 $this->scheduleTeamSport($s, $lp, 'mobilelegend', fn () => (new MobileLegendService)->getUpcomingMatches());
+            }
+            if ($fup) {
+                $this->scheduleTeamSport($s, $fup, 'futsal', fn () => (new FutsalService)->getUpcomingMatches());
             }
 
             $this->info('Done');
