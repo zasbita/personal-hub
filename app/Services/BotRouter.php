@@ -29,7 +29,7 @@ class BotRouter
         'follow' => 'Pantau tim atau balapan — /follow volly Indonesia',
         'unfollow' => 'Berhenti memantau — /unfollow volly Indonesia',
         'myteams' => 'Daftar yang sedang dipantau',
-        'schedule' => 'Check schedule next 7 days — /schedule',
+        'schedule' => 'Check schedule next 3 days — /schedule',
     ];
 
     private const WELCOME = "👋 *Serene Darwin*\n"
@@ -47,7 +47,7 @@ class BotRouter
         ."`/follow volly Indonesia` — pantau tim\n"
         ."`/unfollow volly Indonesia` — berhenti pantau\n"
         ."`/myteams` — daftar pantauan\n"
-        ."`/schedule` — check schedule next 7 days\n\n"
+        ."`/schedule` — check schedule next 3 days\n\n"
         ."_Notifikasi 1 jam sebelum pertandingan, skor akhir setelah selesai,_\n"
         .'_laporan mingguan tiap Senin pagi._';
 
@@ -436,7 +436,7 @@ class BotRouter
             $all = [];
             $now = new \DateTimeImmutable;
 
-            // DB-first: fetch match_schedule then per-sport fallback (7 days)
+            // DB-first: fetch match_schedule then per-sport fallback (3 days max free plan)
             $dbRows = [];
             try {
                 $raw = (new SupabaseService)->select('match_schedule', ['select' => '*', 'order' => 'match_time.asc', 'limit' => 50]);
@@ -450,7 +450,7 @@ class BotRouter
                         continue;
                     }
                     $mt = $r['match_time'] ?? '';
-                    if (! MatchHelper::isNext7Days($mt, $now)) {
+                    if (! MatchHelper::isNext3Days($mt, $now)) {
                         continue;
                     }
                     $dbRows[] = $r;
@@ -492,7 +492,7 @@ class BotRouter
             }
 
             if (empty($all)) {
-                $tg->sendMessage($cid, '📭 No schedule in the next 7 days.');
+                $tg->sendMessage($cid, '📭 No schedule in the next 3 days.');
 
                 return;
             }
@@ -500,7 +500,7 @@ class BotRouter
             usort($all, fn ($a, $b) => strcmp($a['iso'], $b['iso']));
             $cap = 10;
             $slice = array_slice($all, 0, $cap);
-            $msg = "📅 *Schedule next 7 days*\n\n";
+            $msg = "📅 *Schedule next 3 days*\n\n";
             foreach ($slice as $i => $row) {
                 $msg .= ($i + 1).'. '.$row['line']."\n";
             }
@@ -546,7 +546,7 @@ class BotRouter
             $out = [];
             foreach ($fixtures as $m) {
                 $iso = $m['date'] ?? '';
-                if (! MatchHelper::isNext7Days($iso, $now)) {
+                if (! MatchHelper::isNext3Days($iso, $now)) {
                     continue;
                 }
                 foreach ($prefs as $p) {
@@ -574,7 +574,7 @@ class BotRouter
             $out = [];
             foreach ($games as $m) {
                 $iso = $m['date'] ?? '';
-                if (! MatchHelper::isNext7Days($iso, $now)) {
+                if (! MatchHelper::isNext3Days($iso, $now)) {
                     continue;
                 }
                 foreach ($prefs as $p) {
@@ -603,7 +603,7 @@ class BotRouter
             $out = [];
             foreach ($races as $r) {
                 $iso = $r['date'].'T'.($r['time'] ?? '00:00:00');
-                if (! MatchHelper::isNext7Days($iso, $now)) {
+                if (! MatchHelper::isNext3Days($iso, $now)) {
                     continue;
                 }
                 foreach ($prefs as $p) {
@@ -631,7 +631,7 @@ class BotRouter
             $out = [];
             foreach ($matches as $m) {
                 $iso = $m['date'] ?? '';
-                if (! MatchHelper::isNext7Days($iso, $now)) {
+                if (! MatchHelper::isNext3Days($iso, $now)) {
                     continue;
                 }
                 foreach ($prefs as $p) {
@@ -659,7 +659,7 @@ class BotRouter
             $out = [];
             foreach ($matches as $m) {
                 $iso = $m['date'] ?? '';
-                if (! MatchHelper::isNext7Days($iso, $now)) {
+                if (! MatchHelper::isNext3Days($iso, $now)) {
                     continue;
                 }
                 // futsal timnas single team Indonesia — trivial contains

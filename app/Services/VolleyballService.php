@@ -18,7 +18,7 @@ class VolleyballService
     {
         return Cache::remember('volleyball.upcoming', now()->addHours(3), function () {
             $all = [];
-            for ($i = 0; $i < 7; $i++) {
+            for ($i = 0; $i < 3; $i++) {
                 try {
                     $all = array_merge($all, $this->fetch(now()->addDays($i)->format('Y-m-d')));
                 } catch (\RuntimeException $e) {

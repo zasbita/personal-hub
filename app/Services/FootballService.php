@@ -18,11 +18,11 @@ class FootballService
     {
         return Cache::remember('football.upcoming', now()->addHours(3), function () {
             $all = [];
-            for ($i = 0; $i < 7; $i++) {
+            // Free plan max 26–28 Agt (yesterday..tomorrow) → fetch 3 dates best-effort within 72h window
+            for ($i = 0; $i < 3; $i++) {
                 try {
                     $all = array_merge($all, $this->fetch(now()->addDays($i)->format('Y-m-d')));
                 } catch (\RuntimeException $e) {
-                    // Free plan 403 for date outside 26–28 Agt window → skip that date (ponytail: 7d window best-effort within quota)
                     if (str_contains($e->getMessage(), 'Free plans do not have access')) {
                         continue;
                     }
