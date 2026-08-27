@@ -11,6 +11,8 @@ class MatchHelper
 
     public const SCHEDULE_TO_HOURS = 30;
 
+    public const NEXT_24H_HOURS = 24;
+
     public static function sourceId(string $matchId, int|string $userId): string
     {
         return "{$matchId}:u{$userId}";
@@ -34,6 +36,13 @@ class MatchHelper
         $now ??= new \DateTimeImmutable;
 
         return self::isInWindow($iso, $now->modify('+'.self::SCHEDULE_FROM_HOURS.' hours'), $now->modify('+'.self::SCHEDULE_TO_HOURS.' hours'));
+    }
+
+    public static function isNext24Hours(string $iso, ?\DateTimeImmutable $now = null): bool
+    {
+        $now ??= new \DateTimeImmutable;
+
+        return self::isInWindow($iso, $now, $now->modify('+'.self::NEXT_24H_HOURS.' hours'));
     }
 
     public static function isInWindow(string $iso, \DateTimeImmutable $from, \DateTimeImmutable $to): bool
