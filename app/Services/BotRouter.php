@@ -277,12 +277,12 @@ class BotRouter
 
             return;
         }
-        if (! in_array(strtolower($p[1]), SportPrefsService::SPORTS, true)) {
+        $sport = SportPrefsService::normalizeSport(strtolower($p[1]));
+        if (! in_array($sport, SportPrefsService::SPORTS, true)) {
             $tg->sendMessage($cid, "⚠️ Sport *{$p[1]}* belum didukung.\nPilihan: `".implode('`, `', SportPrefsService::SPORTS).'`');
 
             return;
         }
-        $sport = strtolower($p[1]);
         $wanted = implode(' ', array_slice($p, 2));
         try {
             $name = $this->resolveEntity($sport, $wanted, $cid, $tg);
@@ -313,6 +313,23 @@ class BotRouter
                     }
                 }
                 $tg->sendMessage($cid, "⚠️ *{$wanted}* tidak cocok dengan sisa balapan musim ini.\nContoh: `".implode('`, `', array_slice($races, 0, 4)).'`');
+
+                return null;
+            }
+            if ($sport === 'mobilelegend') {
+                $ml = new MobileLegendService;
+                $options = $ml->searchTeams($wanted);
+                foreach ($options as $o) {
+                    if (strcasecmp($o, $wanted) === 0) {
+                        return $o;
+                    }
+                }
+                if (empty($options)) {
+                    $tg->sendMessage($cid, "⚠️ Tim *{$wanted}* tidak ditemukan di data mobilelegend.");
+
+                    return null;
+                }
+                $tg->sendMessage($cid, "⚠️ Tim *{$wanted}* tidak persis ada. Maksudmu:\n`".implode("`\n`", array_slice($options, 0, 6)).'`');
 
                 return null;
             }
@@ -349,7 +366,8 @@ class BotRouter
             return;
         }
         try {
-            (new SportPrefsService(new SupabaseService))->removePreference($uid, strtolower($p[1]), strtolower(implode(' ', array_slice($p, 2))));
+            $sport = SportPrefsService::normalizeSport(strtolower($p[1]));
+            (new SportPrefsService(new SupabaseService))->removePreference($uid, $sport, strtolower(implode(' ', array_slice($p, 2))));
             $tg->sendMessage($cid, '✅ Berhenti memantau.');
         } catch (\Exception $e) {
             $tg->sendMessage($cid, '❌ Error hapus preferensi.');
@@ -390,6 +408,7 @@ class BotRouter
             $fp = $by(['football']);
             $vp = $by(['volly']);
             $mp = $by(['motogp', 'moto2', 'moto3', 'baggers']);
+            $lp = $by(['mobilelegend']);
 
             $all = [];
             $now = new \DateTimeImmutable;
@@ -442,6 +461,9 @@ class BotRouter
                     $all = array_merge($all, $this->fetchMotoFallback($mpForClass, $ms, $now));
                 }
             }
+            if ($lp && empty(array_filter($dbRows, fn ($r) => ($r['sport_type'] ?? '') === 'mobilelegend'))) {
+                $all = array_merge($all, $this->fetchMobileLegendFallback($lp, $now));
+            }
 
             if (empty($all)) {
                 $tg->sendMessage($cid, '📭 Tidak ada jadwal dalam 24 jam ke depan.');
@@ -477,6 +499,8 @@ class BotRouter
             $line = "🏍️ *{$race}*".($circuit ? " @ {$circuit}" : '')." — ⏱️ {$time}";
         } elseif ($sport === 'volly') {
             $line = "🏐 {$r['home_team']} vs {$r['away_team']} — {$r['competition']} — ⏱️ {$time}";
+        } elseif ($sport === 'mobilelegend') {
+            $line = "🎮 {$r['home_team']} vs {$r['away_team']} — {$r['competition']} — ⏱️ {$time}";
         } else {
             $line = "⚽ {$r['home_team']} vs {$r['away_team']} — {$r['competition']} — ⏱️ {$time}";
         }
@@ -559,6 +583,34 @@ class BotRouter
                         continue;
                     }
                     $out[] = ['iso' => $iso, 'line' => "🏍️ *{$r['raceName']}* @ {$r['Circuit']['circuitName']} — ⏱️ ".DisplayTime::format($iso)];
+                    break;
+                }
+            }
+
+            return $out;
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @return array<int, array{iso:string,line:string}>
+     */
+    private function fetchMobileLegendFallback(array $prefs, \DateTimeImmutable $now): array
+    {
+        try {
+            $matches = (new MobileLegendService)->getUpcomingMatches();
+            $out = [];
+            foreach ($matches as $m) {
+                $iso = $m['date'] ?? '';
+                if (! MatchHelper::isNext24Hours($iso, $now)) {
+                    continue;
+                }
+                foreach ($prefs as $p) {
+                    if (! NameMatcher::matches($m['home'], $p['entity_name']) && ! NameMatcher::matches($m['away'], $p['entity_name'])) {
+                        continue;
+                    }
+                    $out[] = ['iso' => $iso, 'line' => "🎮 {$m['home']} vs {$m['away']} — {$m['league']} — ⏱️ ".DisplayTime::format($iso)];
                     break;
                 }
             }
