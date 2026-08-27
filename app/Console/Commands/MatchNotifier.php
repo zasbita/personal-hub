@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\DisplayTime;
 use App\Services\FootballService;
+use App\Services\MobileLegendService;
 use App\Services\MotoGPService;
 use App\Services\NameMatcher;
 use App\Services\SportPrefsService;
@@ -41,6 +42,7 @@ class MatchNotifier extends Command
             $fp = $by(['football']);
             $vp = $by(['volly']);
             $mp = $by(['motogp', 'moto2', 'moto3', 'baggers']);
+            $lp = $by(['mobilelegend']);
             if ($fp) {
                 $this->notifyTeamSport($s, $tg, $fp, 'football', '⚽', fn () => (new FootballService)->getUpcomingFixtures());
             }
@@ -49,6 +51,9 @@ class MatchNotifier extends Command
             }
             if ($mp) {
                 $this->notifyMotoGP($s, $tg, $mp);
+            }
+            if ($lp) {
+                $this->notifyTeamSport($s, $tg, $lp, 'mobilelegend', '🎮', fn () => (new MobileLegendService)->getUpcomingMatches());
             }
             $this->info('Done');
         } catch (\Throwable $e) {

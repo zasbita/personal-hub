@@ -5,7 +5,17 @@ namespace App\Services;
 class SportPrefsService
 {
     /** Sport types MatchNotifier actually knows how to check. */
-    public const SPORTS = ['football', 'volly', 'motogp', 'moto2', 'moto3', 'baggers'];
+    public const SPORTS = ['football', 'volly', 'motogp', 'moto2', 'moto3', 'baggers', 'mobilelegend'];
+
+    /** Alias → canonical sport_type (ponytail: keep SPORTS unique, normalize at boundary) */
+    public const ALIASES = ['mlbb' => 'mobilelegend', 'ml' => 'mobilelegend'];
+
+    public static function normalizeSport(string $sport): string
+    {
+        $s = strtolower($sport);
+
+        return self::ALIASES[$s] ?? $s;
+    }
 
     private SupabaseService $supabase;
 

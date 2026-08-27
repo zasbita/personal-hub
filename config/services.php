@@ -8,4 +8,5 @@ return [
     // 0 disables the budget line entirely.
     'budget' => ['monthly' => env('MONTHLY_BUDGET', 0)],
     'api_sports' => ['key' => env('API_SPORTS_KEY') ?: env('FOOTBALL_API_KEY')],
+    'mpl' => ['url' => env('MPL_API_URL'), 'key' => env('MPL_API_KEY')],
 ];
