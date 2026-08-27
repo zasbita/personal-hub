@@ -51,17 +51,17 @@ class BotRouterJadwalTest extends TestCase
         ]);
 
         $sent = [];
-        $this->routerWithMock($sent)->handle($this->update('/jadwal'));
+        $this->routerWithMock($sent)->handle($this->update('/schedule'));
 
         $this->assertNotEmpty($sent);
-        $this->assertStringContainsString('Jadwal 24 jam', $sent[0]);
+        $this->assertStringContainsString('Schedule next 7 days', $sent[0]);
         $this->assertStringContainsString('Liverpool vs Arsenal', $sent[0]);
     }
 
     public function test_alias_schedule_and_next(): void
     {
         $mt = now()->addHours(5)->toIso8601String();
-        foreach (['/schedule', '/next'] as $alias) {
+        foreach (['/jadwal', '/schedule', '/next'] as $alias) {
             Cache::flush();
             Http::fake([
                 '*/rest/v1/user_preferences*' => Http::response([['user_id' => 99, 'sport_type' => 'football', 'entity_name' => 'Liverpool', 'notification_enabled' => true]]),
@@ -79,7 +79,7 @@ class BotRouterJadwalTest extends TestCase
     {
         Http::fake(['api.telegram.org/*' => Http::response(['ok' => true])]);
         $sent = [];
-        $this->routerWithMock($sent)->handle($this->update('/jadwal', from: 999));
+        $this->routerWithMock($sent)->handle($this->update('/schedule', from: 999));
         $this->assertStringContainsString('Unauthorized', $sent[0]);
         Http::assertNothingSent();
     }
@@ -91,8 +91,8 @@ class BotRouterJadwalTest extends TestCase
             'api.telegram.org/*' => Http::response(['ok' => true]),
         ]);
         $sent = [];
-        $this->routerWithMock($sent)->handle($this->update('/jadwal'));
-        $this->assertStringContainsString('Belum ada yang dipantau', $sent[0]);
+        $this->routerWithMock($sent)->handle($this->update('/schedule'));
+        $this->assertStringContainsString('No teams followed', $sent[0]);
     }
 
     public function test_no_jadwal_in_24h_shows_empty(): void
@@ -104,8 +104,8 @@ class BotRouterJadwalTest extends TestCase
             'api.telegram.org/*' => Http::response(['ok' => true]),
         ]);
         $sent = [];
-        $this->routerWithMock($sent)->handle($this->update('/jadwal'));
-        $this->assertStringContainsString('Tidak ada jadwal', $sent[0]);
+        $this->routerWithMock($sent)->handle($this->update('/schedule'));
+        $this->assertStringContainsString('No schedule in the next 7 days', $sent[0]);
     }
 
     public function test_fallback_hits_api_when_db_empty(): void
@@ -120,7 +120,7 @@ class BotRouterJadwalTest extends TestCase
             'api.telegram.org/*' => Http::response(['ok' => true]),
         ]);
         $sent = [];
-        $this->routerWithMock($sent)->handle($this->update('/jadwal'));
+        $this->routerWithMock($sent)->handle($this->update('/schedule'));
         $this->assertStringContainsString('Liverpool vs Chelsea', $sent[0]);
     }
 
@@ -141,7 +141,7 @@ class BotRouterJadwalTest extends TestCase
             'api.telegram.org/*' => Http::response(['ok' => true]),
         ]);
         $sent = [];
-        $this->routerWithMock($sent)->handle($this->update('/jadwal'));
+        $this->routerWithMock($sent)->handle($this->update('/schedule'));
         $this->assertStringContainsString('Liverpool vs Arsenal', $sent[0]);
         $this->assertStringContainsString('Indonesia', $sent[0]);
         // football API should not be called because DB had football
@@ -161,17 +161,17 @@ class BotRouterJadwalTest extends TestCase
             'api.telegram.org/*' => Http::response(['ok' => true]),
         ]);
         $sent = [];
-        $this->routerWithMock($sent)->handle($this->update('/jadwal'));
-        $this->assertStringContainsString('dan 2 jadwal lainnya', $sent[0]);
+        $this->routerWithMock($sent)->handle($this->update('/schedule'));
+        $this->assertStringContainsString('and 2 more', $sent[0]);
         $this->assertStringContainsString('Team1 vs', $sent[0]);
         // Team12 is 12th oldest? Actually Team1 is earliest, should be included; Team11 beyond cap 10 should not be in slice but overflow counts it
         $this->assertStringNotContainsString('Team11 vs', $sent[0]);
         $this->assertStringNotContainsString('Team12 vs', $sent[0]);
     }
 
-    public function test_menu_contains_jadwal(): void
+    public function test_menu_contains_schedule(): void
     {
-        $this->assertArrayHasKey('jadwal', BotRouter::MENU);
-        $this->assertStringContainsString('/jadwal', (new \ReflectionClass(BotRouter::class))->getConstant('WELCOME'));
+        $this->assertArrayHasKey('schedule', BotRouter::MENU);
+        $this->assertStringContainsString('/schedule', (new \ReflectionClass(BotRouter::class))->getConstant('WELCOME'));
     }
 }

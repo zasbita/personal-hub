@@ -10,17 +10,17 @@ class FootballService
     private const API = 'https://v3.football.api-sports.io';
 
     /**
-     * Not-yet-kicked-off fixtures for today and tomorrow, trimmed to the fields
+     * Not-yet-kicked-off fixtures for the next 7 days, trimmed to the fields
      * the notifier uses. Cached because the API-Sports free plan allows 100
      * requests/day while bot:notify runs every 15 minutes.
      */
     public function getUpcomingFixtures(): array
     {
         return Cache::remember('football.upcoming', now()->addHours(3), function () {
-            $all = array_merge(
-                $this->fetch(now()->format('Y-m-d')),
-                $this->fetch(now()->addDay()->format('Y-m-d')),
-            );
+            $all = [];
+            for ($i = 0; $i < 7; $i++) {
+                $all = array_merge($all, $this->fetch(now()->addDays($i)->format('Y-m-d')));
+            }
 
             return array_values(array_column($all, null, 'id')); // a game can be listed under both dates
         });

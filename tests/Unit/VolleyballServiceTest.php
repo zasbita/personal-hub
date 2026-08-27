@@ -23,10 +23,10 @@ class VolleyballServiceTest extends TestCase
         $this->assertSame(['1'], array_column($games, 'id')); // NS only, and a game listed under both dates counts once
         $this->assertSame('Indonesia W', $games[0]['home']);
         $this->assertSame('Asian Championship Women', $games[0]['league']);
-        Http::assertSentCount(2);
+        Http::assertSentCount(7);
 
         (new VolleyballService)->getUpcomingGames();
-        Http::assertSentCount(2); // served from cache
+        Http::assertSentCount(7); // served from cache
     }
 
     public function test_api_errors_are_thrown(): void

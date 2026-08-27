@@ -13,6 +13,8 @@ class MatchHelper
 
     public const NEXT_24H_HOURS = 24;
 
+    public const NEXT_7D_HOURS = 168;
+
     public static function sourceId(string $matchId, int|string $userId): string
     {
         return "{$matchId}:u{$userId}";
@@ -43,6 +45,13 @@ class MatchHelper
         $now ??= new \DateTimeImmutable;
 
         return self::isInWindow($iso, $now, $now->modify('+'.self::NEXT_24H_HOURS.' hours'));
+    }
+
+    public static function isNext7Days(string $iso, ?\DateTimeImmutable $now = null): bool
+    {
+        $now ??= new \DateTimeImmutable;
+
+        return self::isInWindow($iso, $now, $now->modify('+'.self::NEXT_7D_HOURS.' hours'));
     }
 
     public static function isInWindow(string $iso, \DateTimeImmutable $from, \DateTimeImmutable $to): bool
