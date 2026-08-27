@@ -29,7 +29,7 @@ class BotRouter
         'follow' => 'Pantau tim atau balapan — /follow volly Indonesia',
         'unfollow' => 'Berhenti memantau — /unfollow volly Indonesia',
         'myteams' => 'Daftar yang sedang dipantau',
-        'jadwal' => 'Cek jadwal 1 hari ke depan — /jadwal',
+        'schedule' => 'Check schedule next 7 days — /schedule',
     ];
 
     private const WELCOME = "👋 *Serene Darwin*\n"
@@ -47,7 +47,7 @@ class BotRouter
         ."`/follow volly Indonesia` — pantau tim\n"
         ."`/unfollow volly Indonesia` — berhenti pantau\n"
         ."`/myteams` — daftar pantauan\n"
-        ."`/jadwal` — cek jadwal 24 jam ke depan\n\n"
+        ."`/schedule` — check schedule next 7 days\n\n"
         ."_Notifikasi 1 jam sebelum pertandingan, skor akhir setelah selesai,_\n"
         .'_laporan mingguan tiap Senin pagi._';
 
@@ -421,7 +421,7 @@ class BotRouter
             $prefs = (new SportPrefsService(new SupabaseService))->getPreferences($uid);
             $prefs = array_values(array_filter($prefs, fn ($p) => ! isset($p['notification_enabled']) || (bool) $p['notification_enabled']));
             if (empty($prefs)) {
-                $tg->sendMessage($cid, '📭 Belum ada yang dipantau. Gunakan `/follow [sport] [team]`.');
+                $tg->sendMessage($cid, '📭 No teams followed. Use `/follow [sport] [team]`.');
 
                 return;
             }
@@ -436,7 +436,7 @@ class BotRouter
             $all = [];
             $now = new \DateTimeImmutable;
 
-            // DB-first: fetch match_schedule then per-sport fallback
+            // DB-first: fetch match_schedule then per-sport fallback (7 days)
             $dbRows = [];
             try {
                 $raw = (new SupabaseService)->select('match_schedule', ['select' => '*', 'order' => 'match_time.asc', 'limit' => 50]);
@@ -450,7 +450,7 @@ class BotRouter
                         continue;
                     }
                     $mt = $r['match_time'] ?? '';
-                    if (! MatchHelper::isNext24Hours($mt, $now)) {
+                    if (! MatchHelper::isNext7Days($mt, $now)) {
                         continue;
                     }
                     $dbRows[] = $r;
@@ -492,7 +492,7 @@ class BotRouter
             }
 
             if (empty($all)) {
-                $tg->sendMessage($cid, '📭 Tidak ada jadwal dalam 24 jam ke depan.');
+                $tg->sendMessage($cid, '📭 No schedule in the next 7 days.');
 
                 return;
             }
@@ -500,17 +500,17 @@ class BotRouter
             usort($all, fn ($a, $b) => strcmp($a['iso'], $b['iso']));
             $cap = 10;
             $slice = array_slice($all, 0, $cap);
-            $msg = "📅 *Jadwal 24 jam ke depan*\n\n";
+            $msg = "📅 *Schedule next 7 days*\n\n";
             foreach ($slice as $i => $row) {
                 $msg .= ($i + 1).'. '.$row['line']."\n";
             }
             $remaining = count($all) - $cap;
             if ($remaining > 0) {
-                $msg .= "\n… dan {$remaining} jadwal lainnya";
+                $msg .= "\n… and {$remaining} more";
             }
             $tg->sendMessage($cid, $msg);
         } catch (\Throwable $e) {
-            $tg->sendMessage($cid, "⚠️ Gagal ambil jadwal: {$e->getMessage()}");
+            $tg->sendMessage($cid, "⚠️ Failed to fetch schedule: {$e->getMessage()}");
         }
     }
 
@@ -546,7 +546,7 @@ class BotRouter
             $out = [];
             foreach ($fixtures as $m) {
                 $iso = $m['date'] ?? '';
-                if (! MatchHelper::isNext24Hours($iso, $now)) {
+                if (! MatchHelper::isNext7Days($iso, $now)) {
                     continue;
                 }
                 foreach ($prefs as $p) {
@@ -574,7 +574,7 @@ class BotRouter
             $out = [];
             foreach ($games as $m) {
                 $iso = $m['date'] ?? '';
-                if (! MatchHelper::isNext24Hours($iso, $now)) {
+                if (! MatchHelper::isNext7Days($iso, $now)) {
                     continue;
                 }
                 foreach ($prefs as $p) {
@@ -603,7 +603,7 @@ class BotRouter
             $out = [];
             foreach ($races as $r) {
                 $iso = $r['date'].'T'.($r['time'] ?? '00:00:00');
-                if (! MatchHelper::isNext24Hours($iso, $now)) {
+                if (! MatchHelper::isNext7Days($iso, $now)) {
                     continue;
                 }
                 foreach ($prefs as $p) {
@@ -631,7 +631,7 @@ class BotRouter
             $out = [];
             foreach ($matches as $m) {
                 $iso = $m['date'] ?? '';
-                if (! MatchHelper::isNext24Hours($iso, $now)) {
+                if (! MatchHelper::isNext7Days($iso, $now)) {
                     continue;
                 }
                 foreach ($prefs as $p) {
@@ -659,7 +659,7 @@ class BotRouter
             $out = [];
             foreach ($matches as $m) {
                 $iso = $m['date'] ?? '';
-                if (! MatchHelper::isNext24Hours($iso, $now)) {
+                if (! MatchHelper::isNext7Days($iso, $now)) {
                     continue;
                 }
                 // futsal timnas single team Indonesia — trivial contains

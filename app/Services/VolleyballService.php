@@ -10,17 +10,17 @@ class VolleyballService
     private const API = 'https://v1.volleyball.api-sports.io';
 
     /**
-     * Not-yet-started games for today and tomorrow.
+     * Not-yet-started games for the next 7 days.
      * Cached because the API-Sports free plan allows 100 requests/day while
      * bot:notify runs every 15 minutes.
      */
     public function getUpcomingGames(): array
     {
         return Cache::remember('volleyball.upcoming', now()->addHours(3), function () {
-            $all = array_merge(
-                $this->fetch(now()->format('Y-m-d')),
-                $this->fetch(now()->addDay()->format('Y-m-d')),
-            );
+            $all = [];
+            for ($i = 0; $i < 7; $i++) {
+                $all = array_merge($all, $this->fetch(now()->addDays($i)->format('Y-m-d')));
+            }
 
             return array_values(array_column($all, null, 'id')); // a game can be listed under both dates
         });
