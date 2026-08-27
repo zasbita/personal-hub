@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Support\MatchHelper;
+
 /**
  * Everything the bot does with one incoming Telegram update.
  *
@@ -27,6 +29,7 @@ class BotRouter
         'follow' => 'Pantau tim atau balapan — /follow volly Indonesia',
         'unfollow' => 'Berhenti memantau — /unfollow volly Indonesia',
         'myteams' => 'Daftar yang sedang dipantau',
+        'jadwal' => 'Cek jadwal 1 hari ke depan — /jadwal',
     ];
 
     private const WELCOME = "👋 *Serene Darwin*\n"
@@ -43,7 +46,8 @@ class BotRouter
         ."🏆 *Olahraga*\n"
         ."`/follow volly Indonesia` — pantau tim\n"
         ."`/unfollow volly Indonesia` — berhenti pantau\n"
-        ."`/myteams` — daftar pantauan\n\n"
+        ."`/myteams` — daftar pantauan\n"
+        ."`/jadwal` — cek jadwal 24 jam ke depan\n\n"
         ."_Notifikasi 1 jam sebelum pertandingan, skor akhir setelah selesai,_\n"
         .'_laporan mingguan tiap Senin pagi._';
 
@@ -129,6 +133,11 @@ class BotRouter
         }
         if ($text === '/myteams') {
             $this->handleMyTeams($uid, $cid, $tg);
+
+            return;
+        }
+        if ($text === '/jadwal' || $text === '/schedule' || $text === '/next') {
+            $this->handleJadwal($uid, $cid, $tg);
 
             return;
         }
@@ -363,6 +372,200 @@ class BotRouter
             $tg->sendMessage($cid, $m);
         } catch (\Exception $e) {
             $tg->sendMessage($cid, '❌ Error ambil daftar.');
+        }
+    }
+
+    private function handleJadwal(int $uid, int $cid, TelegramService $tg): void
+    {
+        try {
+            $prefs = (new SportPrefsService(new SupabaseService))->getPreferences($uid);
+            $prefs = array_values(array_filter($prefs, fn ($p) => ! isset($p['notification_enabled']) || (bool) $p['notification_enabled']));
+            if (empty($prefs)) {
+                $tg->sendMessage($cid, '📭 Belum ada yang dipantau. Gunakan `/follow [sport] [team]`.');
+
+                return;
+            }
+
+            $by = fn (array $types) => array_values(array_filter($prefs, fn ($p) => in_array($p['sport_type'], $types, true)));
+            $fp = $by(['football']);
+            $vp = $by(['volly']);
+            $mp = $by(['motogp', 'moto2', 'moto3', 'baggers']);
+
+            $all = [];
+            $now = new \DateTimeImmutable;
+
+            // DB-first: fetch match_schedule then per-sport fallback
+            $dbRows = [];
+            try {
+                $raw = (new SupabaseService)->select('match_schedule', ['select' => '*', 'order' => 'match_time.asc', 'limit' => 50]);
+                foreach ($raw as $r) {
+                    $sid = $r['source_id'] ?? '';
+                    if (! str_ends_with($sid, ":u{$uid}")) {
+                        continue;
+                    }
+                    $status = strtolower($r['status'] ?? '');
+                    if (! in_array($status, ['ns', 'scheduled'], true)) {
+                        continue;
+                    }
+                    $mt = $r['match_time'] ?? '';
+                    if (! MatchHelper::isNext24Hours($mt, $now)) {
+                        continue;
+                    }
+                    $dbRows[] = $r;
+                }
+            } catch (\Throwable) {
+                $dbRows = [];
+            }
+
+            // Group DB rows by sport for per-sport fallback decision
+            $hasDb = [];
+            foreach ($dbRows as $r) {
+                $st = $r['sport_type'] ?? '';
+                $hasDb[$st] = true;
+                $all[] = $this->formatJadwalRow($r);
+            }
+
+            // Per-sport fallback if DB empty for that sport
+            if ($fp && empty(array_filter($dbRows, fn ($r) => ($r['sport_type'] ?? '') === 'football'))) {
+                $all = array_merge($all, $this->fetchFootballFallback($fp, $now));
+            }
+            if ($vp && empty(array_filter($dbRows, fn ($r) => ($r['sport_type'] ?? '') === 'volly'))) {
+                $all = array_merge($all, $this->fetchVollyFallback($vp, $now));
+            }
+            if ($mp) {
+                $motoSports = array_unique(array_column($mp, 'sport_type'));
+                foreach ($motoSports as $ms) {
+                    if (! empty($hasDb[$ms])) {
+                        continue;
+                    }
+                    $mpForClass = array_values(array_filter($mp, fn ($p) => $p['sport_type'] === $ms));
+                    $all = array_merge($all, $this->fetchMotoFallback($mpForClass, $ms, $now));
+                }
+            }
+
+            if (empty($all)) {
+                $tg->sendMessage($cid, '📭 Tidak ada jadwal dalam 24 jam ke depan.');
+
+                return;
+            }
+
+            usort($all, fn ($a, $b) => strcmp($a['iso'], $b['iso']));
+            $cap = 10;
+            $slice = array_slice($all, 0, $cap);
+            $msg = "📅 *Jadwal 24 jam ke depan*\n\n";
+            foreach ($slice as $i => $row) {
+                $msg .= ($i + 1).'. '.$row['line']."\n";
+            }
+            $remaining = count($all) - $cap;
+            if ($remaining > 0) {
+                $msg .= "\n… dan {$remaining} jadwal lainnya";
+            }
+            $tg->sendMessage($cid, $msg);
+        } catch (\Throwable $e) {
+            $tg->sendMessage($cid, "⚠️ Gagal ambil jadwal: {$e->getMessage()}");
+        }
+    }
+
+    private function formatJadwalRow(array $r): array
+    {
+        $sport = $r['sport_type'] ?? '';
+        $iso = $r['match_time'] ?? '';
+        $time = DisplayTime::format($iso);
+        if (in_array($sport, ['motogp', 'moto2', 'moto3', 'baggers'], true)) {
+            $race = $r['competition'] ?? $sport;
+            $circuit = $r['home_team'] ?? '';
+            $line = "🏍️ *{$race}*".($circuit ? " @ {$circuit}" : '')." — ⏱️ {$time}";
+        } elseif ($sport === 'volly') {
+            $line = "🏐 {$r['home_team']} vs {$r['away_team']} — {$r['competition']} — ⏱️ {$time}";
+        } else {
+            $line = "⚽ {$r['home_team']} vs {$r['away_team']} — {$r['competition']} — ⏱️ {$time}";
+        }
+
+        return ['iso' => $iso, 'line' => $line];
+    }
+
+    /**
+     * @return array<int, array{iso:string,line:string}>
+     */
+    private function fetchFootballFallback(array $prefs, \DateTimeImmutable $now): array
+    {
+        try {
+            $fixtures = (new FootballService)->getUpcomingFixtures();
+            $out = [];
+            foreach ($fixtures as $m) {
+                $iso = $m['date'] ?? '';
+                if (! MatchHelper::isNext24Hours($iso, $now)) {
+                    continue;
+                }
+                foreach ($prefs as $p) {
+                    if (! NameMatcher::matches($m['home'], $p['entity_name']) && ! NameMatcher::matches($m['away'], $p['entity_name'])) {
+                        continue;
+                    }
+                    $out[] = ['iso' => $iso, 'line' => "⚽ {$m['home']} vs {$m['away']} — {$m['league']} — ⏱️ ".DisplayTime::format($iso)];
+                    break;
+                }
+            }
+
+            return $out;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * @return array<int, array{iso:string,line:string}>
+     */
+    private function fetchVollyFallback(array $prefs, \DateTimeImmutable $now): array
+    {
+        try {
+            $games = (new VolleyballService)->getUpcomingGames();
+            $out = [];
+            foreach ($games as $m) {
+                $iso = $m['date'] ?? '';
+                if (! MatchHelper::isNext24Hours($iso, $now)) {
+                    continue;
+                }
+                foreach ($prefs as $p) {
+                    if (! NameMatcher::matches($m['home'], $p['entity_name']) && ! NameMatcher::matches($m['away'], $p['entity_name'])) {
+                        continue;
+                    }
+                    $out[] = ['iso' => $iso, 'line' => "🏐 {$m['home']} vs {$m['away']} — {$m['league']} — ⏱️ ".DisplayTime::format($iso)];
+                    break;
+                }
+            }
+
+            return $out;
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @return array<int, array{iso:string,line:string}>
+     */
+    private function fetchMotoFallback(array $prefs, string $class, \DateTimeImmutable $now): array
+    {
+        try {
+            $moto = new MotoGPService;
+            $races = $moto->getCurrentSeasonRaces($class);
+            $out = [];
+            foreach ($races as $r) {
+                $iso = $r['date'].'T'.($r['time'] ?? '00:00:00');
+                if (! MatchHelper::isNext24Hours($iso, $now)) {
+                    continue;
+                }
+                foreach ($prefs as $p) {
+                    if (! $moto->matchesRace($r['raceName'], $p['entity_name'])) {
+                        continue;
+                    }
+                    $out[] = ['iso' => $iso, 'line' => "🏍️ *{$r['raceName']}* @ {$r['Circuit']['circuitName']} — ⏱️ ".DisplayTime::format($iso)];
+                    break;
+                }
+            }
+
+            return $out;
+        } catch (\Throwable) {
+            return [];
         }
     }
 }
