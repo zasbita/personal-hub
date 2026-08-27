@@ -5,7 +5,7 @@ namespace App\Services;
 class SportPrefsService
 {
     /** Sport types MatchNotifier actually knows how to check. */
-    public const SPORTS = ['football', 'volly', 'motogp', 'moto2', 'moto3', 'baggers', 'mobilelegend'];
+    public const SPORTS = ['football', 'volly', 'motogp', 'moto2', 'moto3', 'baggers', 'mobilelegend', 'futsal'];
 
     /** Alias → canonical sport_type (ponytail: keep SPORTS unique, normalize at boundary) */
     public const ALIASES = ['mlbb' => 'mobilelegend', 'ml' => 'mobilelegend'];

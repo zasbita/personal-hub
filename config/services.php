@@ -9,4 +9,5 @@ return [
     'budget' => ['monthly' => env('MONTHLY_BUDGET', 0)],
     'api_sports' => ['key' => env('API_SPORTS_KEY') ?: env('FOOTBALL_API_KEY')],
     'mpl' => ['url' => env('MPL_API_URL'), 'key' => env('MPL_API_KEY')],
+    'futsal' => ['url' => env('FUTSAL_API_URL', 'https://en.wikipedia.org/wiki/Indonesia_national_futsal_team')],
 ];

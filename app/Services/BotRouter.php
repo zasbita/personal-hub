@@ -278,6 +278,7 @@ class BotRouter
             return;
         }
         $sport = SportPrefsService::normalizeSport(strtolower($p[1]));
+        // futsal alias timnas/garuda normalization happens in resolveEntity, keep sport as futsal here
         if (! in_array($sport, SportPrefsService::SPORTS, true)) {
             $tg->sendMessage($cid, "⚠️ Sport *{$p[1]}* belum didukung.\nPilihan: `".implode('`, `', SportPrefsService::SPORTS).'`');
 
@@ -326,6 +327,27 @@ class BotRouter
                 }
                 if (empty($options)) {
                     $tg->sendMessage($cid, "⚠️ Tim *{$wanted}* tidak ditemukan di data mobilelegend.");
+
+                    return null;
+                }
+                $tg->sendMessage($cid, "⚠️ Tim *{$wanted}* tidak persis ada. Maksudmu:\n`".implode("`\n`", array_slice($options, 0, 6)).'`');
+
+                return null;
+            }
+            if ($sport === 'futsal') {
+                $low = strtolower(trim($wanted));
+                if (in_array($low, ['indonesia', 'timnas', 'garuda'], true)) {
+                    return 'Indonesia';
+                }
+                $futsal = new FutsalService;
+                $options = $futsal->searchTeams($wanted);
+                foreach ($options as $o) {
+                    if (strcasecmp($o, $wanted) === 0) {
+                        return $o;
+                    }
+                }
+                if (empty($options)) {
+                    $tg->sendMessage($cid, '⚠️ Hanya *Indonesia* yang didukung untuk futsal saat ini. Coba `/follow futsal Indonesia`.');
 
                     return null;
                 }
@@ -409,6 +431,7 @@ class BotRouter
             $vp = $by(['volly']);
             $mp = $by(['motogp', 'moto2', 'moto3', 'baggers']);
             $lp = $by(['mobilelegend']);
+            $fp2 = $by(['futsal']);
 
             $all = [];
             $now = new \DateTimeImmutable;
@@ -464,6 +487,9 @@ class BotRouter
             if ($lp && empty(array_filter($dbRows, fn ($r) => ($r['sport_type'] ?? '') === 'mobilelegend'))) {
                 $all = array_merge($all, $this->fetchMobileLegendFallback($lp, $now));
             }
+            if ($fp2 && empty(array_filter($dbRows, fn ($r) => ($r['sport_type'] ?? '') === 'futsal'))) {
+                $all = array_merge($all, $this->fetchFutsalFallback($fp2, $now));
+            }
 
             if (empty($all)) {
                 $tg->sendMessage($cid, '📭 Tidak ada jadwal dalam 24 jam ke depan.');
@@ -501,6 +527,8 @@ class BotRouter
             $line = "🏐 {$r['home_team']} vs {$r['away_team']} — {$r['competition']} — ⏱️ {$time}";
         } elseif ($sport === 'mobilelegend') {
             $line = "🎮 {$r['home_team']} vs {$r['away_team']} — {$r['competition']} — ⏱️ {$time}";
+        } elseif ($sport === 'futsal') {
+            $line = "⚽ {$r['home_team']} vs {$r['away_team']} — {$r['competition']} — ⏱️ {$time}";
         } else {
             $line = "⚽ {$r['home_team']} vs {$r['away_team']} — {$r['competition']} — ⏱️ {$time}";
         }
@@ -611,6 +639,38 @@ class BotRouter
                         continue;
                     }
                     $out[] = ['iso' => $iso, 'line' => "🎮 {$m['home']} vs {$m['away']} — {$m['league']} — ⏱️ ".DisplayTime::format($iso)];
+                    break;
+                }
+            }
+
+            return $out;
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @return array<int, array{iso:string,line:string}>
+     */
+    private function fetchFutsalFallback(array $prefs, \DateTimeImmutable $now): array
+    {
+        try {
+            $matches = (new FutsalService)->getUpcomingMatches();
+            $out = [];
+            foreach ($matches as $m) {
+                $iso = $m['date'] ?? '';
+                if (! MatchHelper::isNext24Hours($iso, $now)) {
+                    continue;
+                }
+                // futsal timnas single team Indonesia — trivial contains
+                foreach ($prefs as $p) {
+                    if (! NameMatcher::matches($m['home'], $p['entity_name']) && ! NameMatcher::matches($m['away'], $p['entity_name'])) {
+                        // fallback: if either side is Indonesia
+                        if (stripos($m['home'].' '.$m['away'], 'Indonesia') === false) {
+                            continue;
+                        }
+                    }
+                    $out[] = ['iso' => $iso, 'line' => "⚽ {$m['home']} vs {$m['away']} — {$m['league']} — ⏱️ ".DisplayTime::format($iso)];
                     break;
                 }
             }
