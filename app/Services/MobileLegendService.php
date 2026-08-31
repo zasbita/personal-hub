@@ -106,21 +106,21 @@ class MobileLegendService
         // Normalize whitespace
         $text = strip_tags($html);
         $text = html_entity_decode($text);
-        // Match team VS team + date "28 Agt · 15:00"
-        preg_match_all('/([A-Z]{2,6})\s+VS\s+([A-Z]{2,6})\s+(\d{1,2})\s+(\w{3,4})\s*[·\.]\s*(\d{1,2}:\d{2})/u', $text, $m, PREG_SET_ORDER);
+        // Match "BTR VS 28 Agt | 15:00 NAVI" (WIB → UTC) — site uses `|` not `·`
+        preg_match_all('/([A-Z]{2,6})\s+VS\s+(\d{1,2})\s+(\w{3,4})\s*[·\.|]\s*(\d{1,2}:\d{2})\s+([A-Z]{2,6})/u', $text, $m, PREG_SET_ORDER);
         $months = ['jan' => '01', 'feb' => '02', 'mar' => '03', 'apr' => '04', 'mei' => '05', 'jun' => '06', 'jul' => '07', 'agt' => '08', 'sep' => '09', 'okt' => '10', 'nov' => '11', 'des' => '12'];
         $year = (int) now()->format('Y');
         $out = [];
         foreach ($m as $hit) {
             $home = trim($hit[1]);
-            $away = trim($hit[2]);
-            $day = str_pad($hit[3], 2, '0', STR_PAD_LEFT);
-            $monKey = strtolower($hit[4]);
+            $day = str_pad($hit[2], 2, '0', STR_PAD_LEFT);
+            $monKey = strtolower($hit[3]);
             $mon = $months[$monKey] ?? null;
             if (! $mon) {
                 continue;
             }
-            $time = $hit[5];
+            $time = $hit[4];
+            $away = trim($hit[5]);
             // WIB (UTC+7) → UTC
             try {
                 $dtWib = new \DateTimeImmutable("{$year}-{$mon}-{$day} {$time}:00", new \DateTimeZone('Asia/Jakarta'));
