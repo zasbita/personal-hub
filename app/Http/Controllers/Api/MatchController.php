@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\SportPrefsService;
 use App\Services\SupabaseService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -12,12 +13,26 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MatchController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         try {
             $s = new SupabaseService;
+            $params = ['select' => '*', 'match_time' => 'gte.'.now()->toIso8601String(), 'order' => 'match_time.asc', 'limit' => 10];
+            $sport = $request->query('sport_type');
+            if ($sport !== null && $sport !== '') {
+                $norm = SportPrefsService::normalizeSport((string) $sport);
+                if (! in_array($norm, SportPrefsService::SPORTS, true)) {
+                    return response()->json(['error' => 'invalid sport_type'], 400);
+                }
+                $expanded = SportPrefsService::expandSport($norm);
+                if (count($expanded) > 1) {
+                    $params['sport_type'] = 'in.('.implode(',', $expanded).')';
+                } else {
+                    $params['sport_type'] = 'eq.'.$expanded[0];
+                }
+            }
 
-            return response()->json($s->select('match_schedule', ['select' => '*', 'match_time' => 'gte.'.now()->toIso8601String(), 'order' => 'match_time.asc', 'limit' => 10]) ?? []);
+            return response()->json($s->select('match_schedule', $params) ?? []);
         } catch (\Exception $e) {
             // An empty list and a broken Supabase must not look alike.
             Log::error("Match list failed: {$e->getMessage()}");

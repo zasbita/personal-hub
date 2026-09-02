@@ -1,0 +1,69 @@
+openapi: 3.0.0
+info:
+  title: Matches Category Filter
+  version: 1.0.0
+paths:
+  /api/matches:
+    get:
+      summary: List upcoming matches (optional category filter)
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: sport_type
+          schema:
+            type: string
+            enum: [football, volly, motogp, moto2, moto3, baggers, mobilelegend, futsal, mlbb, ml]
+          required: false
+          description: Filter by sport_type. Alias mlbb/ml -> mobilelegend. motogp = group 4 classes.
+      responses:
+        '200':
+          description: Array of match_schedule rows filtered 7d window? Actually returns upcoming (gte now) capped 10 server-side already.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: integer }
+                    sport_type: { type: string }
+                    competition: { type: string, nullable: true }
+                    home_team: { type: string, nullable: true }
+                    away_team: { type: string, nullable: true }
+                    match_time: { type: string, format: date-time }
+                    status: { type: string }
+        '400':
+          description: Invalid sport_type
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string, example: "invalid sport_type" }
+        '401':
+          description: Unauthorized (SupabaseAuth)
+  /api/telegram/webhook:
+    post:
+      summary: Telegram bot commands (schedule per category, categories)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: object
+                  properties:
+                    text: { type: string, example: "/schedule football" }
+                    from: { type: object, properties: { id: { type: integer } } }
+                    chat: { type: object, properties: { id: { type: integer } } }
+      responses:
+        '200':
+          description: Processed, Telegram sendMessage called internally
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sb_access_token

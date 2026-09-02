@@ -17,13 +17,18 @@
     <div v-if="loadError" class="p-4 rounded border border-error/40 text-error text-center">Gagal memuat data. Coba muat ulang halaman.</div>
     <section class="space-y-4">
       <h2 class="text-2xl font-semibold text-on-surface tracking-[-0.02em]">Pertandingan Mendatang</h2>
+      <div class="flex flex-wrap gap-2">
+        <button v-for="cat in categories" :key="cat.value" @click="selectCategory(cat.value)" :class="selectedSport === cat.value ? 'bg-primary-container text-on-primary-container border-primary/30' : 'bg-surface-container border-outline-variant/20 text-on-surface-variant hover:bg-surface-container-highest'" class="px-3 py-1.5 text-sm font-medium border rounded-full transition-all flex items-center gap-1.5">
+          {{ cat.label }} <span class="text-xs opacity-70">({{ categoryCounts[cat.value] ?? 0 }})</span>
+        </button>
+      </div>
       <div class="bg-surface-container border border-outline-variant/20 rounded-lg backdrop-blur-md">
-        <div v-if="matches.length === 0" class="p-6 text-center text-on-surface-variant">Tidak ada pertandingan mendatang</div>
+        <div v-if="filteredMatches.length === 0" class="p-6 text-center text-on-surface-variant">Tidak ada pertandingan mendatang</div>
         <div v-else class="divide-y divide-outline-variant/10">
-          <div v-for="m in matches" :key="m.id" class="p-4 flex items-center gap-3">
+          <div v-for="m in filteredMatches" :key="m.id" class="p-4 flex items-center gap-3">
             <Zap class="w-5 h-5 text-primary shrink-0" />
             <div><p class="text-on-surface font-medium capitalize">{{ m.home_team ? (m.away_team ? m.home_team + ' vs ' + m.away_team : m.home_team) : (m.competition || m.sport_type) }}</p>
-              <p class="text-sm text-on-surface-variant">{{ m.match_time ? new Date(m.match_time).toLocaleString('id-ID') : '' }}<template v-if="m.competition"> • {{ m.competition }}</template></p></div>
+              <p class="text-sm text-on-surface-variant">{{ m.match_time ? new Date(m.match_time).toLocaleString('id-ID') : '' }}<template v-if="m.competition"> • {{ m.competition }}</template> • <span class="capitalize">{{ m.sport_type }}</span></p></div>
           </div>
         </div>
       </div>
@@ -77,7 +82,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { matches as matchApi, preferences as prefApi } from '../api/client.js';
 import { Zap, Bell, BellOff, Trash2, Plus, X, Calendar } from '@lucide/vue';
 const matches = ref([]);
@@ -89,9 +94,48 @@ const showModal = ref(false);
 const submitting = ref(false);
 const now = new Date().toISOString().slice(0, 16);
 const form = ref({ sport_type: 'volly', match_time: '', tournament: '', home_team: '', away_team: '' });
+const MOTO_GROUP = ['motogp','moto2','moto3','baggers'];
+const categories = [
+  { value: 'all', label: 'Semua' },
+  { value: 'football', label: 'Sepak Bola' },
+  { value: 'volly', label: 'Volly' },
+  { value: 'motogp', label: 'MotoGP' },
+  { value: 'mobilelegend', label: 'MLBB' },
+  { value: 'futsal', label: 'Futsal' },
+];
+const selectedSport = ref('all');
+const categoryCounts = computed(() => {
+  const c = { all: matches.value.length };
+  for (const cat of categories) if (cat.value !== 'all') c[cat.value] = 0;
+  for (const m of matches.value) {
+    const st = (m.sport_type || '').toLowerCase();
+    if (st in c) c[st]++;
+    else if (MOTO_GROUP.includes(st) && 'motogp' in c) c['motogp']++;
+  }
+  return c;
+});
+const filteredMatches = computed(() => {
+  if (selectedSport.value === 'all') return matches.value;
+  if (selectedSport.value === 'motogp') return matches.value.filter(m => MOTO_GROUP.includes((m.sport_type||'').toLowerCase()));
+  return matches.value.filter(m => (m.sport_type||'').toLowerCase() === selectedSport.value);
+});
+const selectCategory = (v) => {
+  selectedSport.value = v;
+  const url = new URL(window.location.href);
+  if (v === 'all') url.searchParams.delete('sport');
+  else url.searchParams.set('sport', v);
+  window.history.replaceState({}, '', url);
+};
 const fetchData = async () => { try { const [m, p] = await Promise.all([matchApi.list(), prefApi.list()]); matches.value = m || []; prefs.value = p || []; loadError.value = false; } catch (e) { loadError.value = true; } finally { loading.value = false; } };
 const toggleNotif = async (p) => { busyId.value = p.id; try { await prefApi.update(p.id, !p.notification_enabled); await fetchData(); } finally { busyId.value = null; } };
 const handleDeletePref = async (id) => { if (!confirm('Berhenti memantau?')) return; busyId.value = id; try { await prefApi.remove(id); await fetchData(); } finally { busyId.value = null; } };
 const createMatch = async () => { submitting.value = true; try { await matchApi.create(form.value); showModal.value = false; form.value = { sport_type: 'volly', match_time: '', tournament: '', home_team: '', away_team: '' }; await fetchData(); } catch (e) { alert('Gagal menambahkan jadwal'); } finally { submitting.value = false; } };
-onMounted(fetchData);
+onMounted(() => {
+  const sp = new URLSearchParams(window.location.search).get('sport');
+  if (sp) {
+    const norm = sp.toLowerCase().replace('mlbb','mobilelegend').replace('ml','mobilelegend');
+    if (['all','football','volly','motogp','mobilelegend','futsal'].includes(norm)) selectedSport.value = norm;
+  }
+  fetchData();
+});
 </script>

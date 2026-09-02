@@ -8,13 +8,31 @@ class SportPrefsService
     public const SPORTS = ['football', 'volly', 'motogp', 'moto2', 'moto3', 'baggers', 'mobilelegend', 'futsal'];
 
     /** Alias → canonical sport_type (ponytail: keep SPORTS unique, normalize at boundary) */
-    public const ALIASES = ['mlbb' => 'mobilelegend', 'ml' => 'mobilelegend'];
+    public const ALIASES = ['mlbb' => 'mobilelegend', 'ml' => 'mobilelegend', 'sepakbola' => 'football', 'sepak-bola' => 'football'];
+
+    public const MOTO_GROUP = ['motogp', 'moto2', 'moto3', 'baggers'];
 
     public static function normalizeSport(string $sport): string
     {
-        $s = strtolower($sport);
+        $s = strtolower(trim($sport));
 
         return self::ALIASES[$s] ?? $s;
+    }
+
+    public static function isMotoGroup(string $sport): bool
+    {
+        return in_array(self::normalizeSport($sport), self::MOTO_GROUP, true);
+    }
+
+    /** For motogp filter return all 4 classes, else single canonical. */
+    public static function expandSport(string $sport): array
+    {
+        $n = self::normalizeSport($sport);
+        if ($n === 'motogp') {
+            return self::MOTO_GROUP;
+        }
+
+        return [$n];
     }
 
     private SupabaseService $supabase;
