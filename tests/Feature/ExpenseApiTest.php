@@ -95,6 +95,8 @@ class ExpenseApiTest extends TestCase
 
     public function test_stats_returns_bycategory_and_daily(): void
     {
+        // Freeze to mid-month so addDays(2/3) are <= now and not filtered as future
+        $this->travelTo(now()->startOfMonth()->addDays(10));
         $a = now()->startOfMonth()->addDays(2)->format('Y-m-d');
         $b = now()->startOfMonth()->addDays(3)->format('Y-m-d');
         Http::fake([

@@ -134,7 +134,7 @@ class SheetsService
             return ['total' => 0, 'items' => [], 'byCategory' => []];
         }
         $ago = $since;
-        $now = new \DateTime;
+        $now = new \DateTimeImmutable(now()->toDateTimeString());
         $total = 0;
         $items = [];
         $byCategory = [];
