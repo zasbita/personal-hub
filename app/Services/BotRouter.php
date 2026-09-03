@@ -188,7 +188,7 @@ class BotRouter
                 return;
             }
             $s->deleteExpenseRow($last['row']);
-            $tg->sendMessage($cid, 'ðŸ—‘ï¸ *Dihapus:* Rp '.ExpenseSummary::rupiah($last['amount'])." - {$last['description']}");
+            $tg->sendMessage($cid, '🗑️ *Dihapus:* Rp '.ExpenseSummary::rupiah($last['amount'])." - {$last['description']}");
         } catch (\Exception $e) {
             $tg->sendMessage($cid, '❌ Error hapus pengeluaran.');
         }
@@ -218,8 +218,8 @@ class BotRouter
 
                 return;
             }
-            $s = $r['remainingKm'] <= 0 ? 'ðŸš¨ *SERVIS SEKARANG!* Lewat '.number_format(abs($r['remainingKm'])).' KM' : ($r['remainingKm'] <= 200 ? '⚠️ Tinggal *'.number_format($r['remainingKm']).' KM*' : '✅ Aman. Sisa *'.number_format($r['remainingKm']).' KM*');
-            $tg->sendMessage($cid, "🔧 *Status Servis*\n📍 Terakhir: *".number_format($r['lastKm'])." KM*\nðŸŽ¯ Target: *".number_format($r['nextServiceKm'])." KM*\n\n{$s}");
+            $s = $r['remainingKm'] <= 0 ? '🚨 *SERVIS SEKARANG!* Lewat '.number_format(abs($r['remainingKm'])).' KM' : ($r['remainingKm'] <= 200 ? '⚠️ Tinggal *'.number_format($r['remainingKm']).' KM*' : '✅ Aman. Sisa *'.number_format($r['remainingKm']).' KM*');
+            $tg->sendMessage($cid, "🔧 *Status Servis*\n📍 Terakhir: *".number_format($r['lastKm'])." KM*\n🎯 Target: *".number_format($r['nextServiceKm'])." KM*\n\n{$s}");
         } catch (\Exception $e) {
             $tg->sendMessage($cid, '❌ Error cek servis.');
         }
@@ -246,7 +246,7 @@ class BotRouter
                 // ignore check failure
             }
             $s->appendExpense($p['amount'], $p['description'], $p['category']);
-            $reply = '✅ *Rp '.ExpenseSummary::rupiah($p['amount'])."* untuk *{$p['description']}*\nðŸ“ {$p['category']}";
+            $reply = '✅ *Rp '.ExpenseSummary::rupiah($p['amount'])."* untuk *{$p['description']}*\n📁 {$p['category']}";
             if ($dup) {
                 $reply = "⚠️ *Duplikat?* Mirip transaksi terakhir hari ini.\nKetik `/undo` jika salah.\n\n".$reply;
             }
@@ -262,7 +262,7 @@ class BotRouter
                     if ($limit > 0) {
                         $pct = (int) round($spentCat / $limit * 100);
                         if ($pct >= 100) {
-                            $catAlert = "\nðŸš¨ *Budget {$p['category']} lewat!* {$pct}% (Rp ".ExpenseSummary::rupiah($spentCat).' / '.ExpenseSummary::rupiah($limit).')';
+                            $catAlert = "\n🚨 *Budget {$p['category']} lewat!* {$pct}% (Rp ".ExpenseSummary::rupiah($spentCat).' / '.ExpenseSummary::rupiah($limit).')';
                         } elseif ($pct >= 80) {
                             $catAlert = "\n⚠️ *Budget {$p['category']} 80%* {$pct}% (Rp ".ExpenseSummary::rupiah($spentCat).' / '.ExpenseSummary::rupiah($limit).')';
                         }
@@ -415,9 +415,9 @@ class BotRouter
 
                 return;
             }
-            $m = "ðŸ“‹ *Tim Dipantau:*\n\n";
+            $m = "📋 *Tim Dipantau:*\n\n";
             foreach ($list as $i => $p) {
-                $m .= ($i + 1).". *{$p['entity_name']}* ({$p['sport_type']}) ".($p['notification_enabled'] ? 'ðŸ””' : 'ðŸ”•')."\n";
+                $m .= ($i + 1).". *{$p['entity_name']}* ({$p['sport_type']}) ".($p['notification_enabled'] ? '🔔' : '🔕')."\n";
             }
             $tg->sendMessage($cid, $m);
         } catch (\Exception $e) {
