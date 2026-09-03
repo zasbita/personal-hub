@@ -38,6 +38,7 @@ class BotRouter
         ."💰 *Keuangan*\n"
         ."`50k makan siang` — catat langsung, tanpa perintah\n"
         ."`25k kopi #Jajan` — pakai kategori\n"
+        ."`50k makan siang 2026-09-02` — catat dengan tanggal\n"
         ."`/undo` — hapus catatan terakhir\n"
         ."`/summary` — ringkasan 7 hari\n"
         ."`/summary 30` — ganti jumlah hari\n\n"
@@ -229,24 +230,26 @@ class BotRouter
     {
         $p = ExpenseParser::parse($text, $implicit ? self::IMPLICIT_MIN_AMOUNT : 0);
         if (! $p) {
-            $tg->sendMessage($cid, '⚠️ Format: `/log 50k makan siang`');
+            $tg->sendMessage($cid, '⚠️ Format: `/log 50k makan siang [YYYY-MM-DD] [#Kategori]` — contoh: `50k makan siang 2026-09-02 #Jajan`');
 
             return;
         }
         try {
             $s = new SheetsService;
-            // Duplicate guard: same amount+description as last row today ’ warn but still save (ponytail: one read, no lock)
+            $date = $p['date'] ?? date('Y-m-d');
+            // Duplicate guard: same amount+description as last row on same date ’ warn but still save (ponytail: one read, no lock)
             $dup = false;
             try {
                 $last = $s->lastExpense();
-                if ($last && (float) $last['amount'] === (float) $p['amount'] && strtolower(trim($last['description'])) === strtolower(trim($p['description'])) && ($last['date'] ?? '') === date('Y-m-d')) {
+                if ($last && (float) $last['amount'] === (float) $p['amount'] && strtolower(trim($last['description'])) === strtolower(trim($p['description'])) && ($last['date'] ?? '') === $date) {
                     $dup = true;
                 }
             } catch (\Throwable $e) {
                 // ignore check failure
             }
-            $s->appendExpense($p['amount'], $p['description'], $p['category']);
-            $reply = '✅ *Rp '.ExpenseSummary::rupiah($p['amount'])."* untuk *{$p['description']}*\n📁 {$p['category']}";
+            $s->appendExpense($p['amount'], $p['description'], $p['category'], $date);
+            $dateSuffix = $date !== date('Y-m-d') ? " | 📅 {$date}" : '';
+            $reply = '✅ *Rp '.ExpenseSummary::rupiah($p['amount'])."* untuk *{$p['description']}*\n📁 {$p['category']}{$dateSuffix}";
             if ($dup) {
                 $reply = "⚠️ *Duplikat?* Mirip transaksi terakhir hari ini.\nKetik `/undo` jika salah.\n\n".$reply;
             }

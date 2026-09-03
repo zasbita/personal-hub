@@ -110,9 +110,15 @@ class SheetsService
         return null;
     }
 
-    public function appendExpense(float $amount, string $desc, string $cat): array
+    public function appendExpense(float $amount, string $desc, string $cat, ?string $date = null): array
     {
-        return $this->sheetsSend('POST', "/spreadsheets/{$this->sheetId}/values/".self::range('A:E').':append?valueInputOption=USER_ENTERED', ['values' => [[date('Y-m-d'), $amount, $desc, $cat, uuid_create()]]]);
+        $d = $date ?? date('Y-m-d');
+        // Validate Y-m-d, fallback to today if malformed (ponytail: Sheets expects Y-m-d)
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) || ! strtotime($d)) {
+            $d = date('Y-m-d');
+        }
+
+        return $this->sheetsSend('POST', "/spreadsheets/{$this->sheetId}/values/".self::range('A:E').':append?valueInputOption=USER_ENTERED', ['values' => [[$d, $amount, $desc, $cat, uuid_create()]]]);
     }
 
     /**
