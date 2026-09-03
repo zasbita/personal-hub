@@ -74,7 +74,7 @@ class BotRouter
         $cid = (int) $msg['chat']['id'];
         $text = trim($msg['text'] ?? '');
 
-        // Photo with caption â†’ treat caption as expense (ponytail: caption OCR stub, real Vision API when key exists)
+        // Photo with caption ’ treat caption as expense (ponytail: caption OCR stub, real Vision API when key exists)
         if (isset($msg['photo']) && is_array($msg['photo'])) {
             $caption = trim($msg['caption'] ?? '');
             if ($caption !== '') {
@@ -88,7 +88,7 @@ class BotRouter
         }
 
         if ($uid !== $this->ownerId) {
-            $tg->sendMessage($cid, "âŒ *Unauthorized.* Your ID: `{$uid}`");
+            $tg->sendMessage($cid, "❌ *Unauthorized.* Your ID: `{$uid}`");
 
             return;
         }
@@ -152,7 +152,7 @@ class BotRouter
             return;
         }
         if (str_starts_with($text, '/')) {
-            $tg->sendMessage($cid, 'â“ Perintah tidak dikenal. Lihat `/help`.');
+            $tg->sendMessage($cid, '❓ Perintah tidak dikenal. Lihat `/help`.');
 
             return;
         }
@@ -173,7 +173,7 @@ class BotRouter
             }
             $tg->sendMessage($cid, ExpenseSummary::format($r, $days));
         } catch (\Exception $e) {
-            $tg->sendMessage($cid, 'âŒ Error mengambil data.');
+            $tg->sendMessage($cid, '❌ Error mengambil data.');
         }
     }
 
@@ -190,14 +190,14 @@ class BotRouter
             $s->deleteExpenseRow($last['row']);
             $tg->sendMessage($cid, 'ðŸ—‘ï¸ *Dihapus:* Rp '.ExpenseSummary::rupiah($last['amount'])." - {$last['description']}");
         } catch (\Exception $e) {
-            $tg->sendMessage($cid, 'âŒ Error hapus pengeluaran.');
+            $tg->sendMessage($cid, '❌ Error hapus pengeluaran.');
         }
     }
 
     private function handleKm(int $uid, ?string $un, int $cid, string $text, TelegramService $tg): void
     {
         if (! preg_match('/\/update_km\s+(\d+)/', $text, $m)) {
-            $tg->sendMessage($cid, 'âš ï¸ Format: `/update_km [angka]`');
+            $tg->sendMessage($cid, '⚠️ Format: `/update_km [angka]`');
 
             return;
         }
@@ -205,7 +205,7 @@ class BotRouter
             $r = (new VehicleService(new SupabaseService))->updateOdometer($uid, $un, (int) $m[1]);
             $tg->sendMessage($cid, "🏍️ *Updated!*\n📍 KM: *".number_format($r['lastKm'])."*\n🔧 Servis: *".number_format($r['nextServiceKm']).' KM*');
         } catch (\Exception $e) {
-            $tg->sendMessage($cid, 'âŒ Error update odometer.');
+            $tg->sendMessage($cid, '❌ Error update odometer.');
         }
     }
 
@@ -214,14 +214,14 @@ class BotRouter
         try {
             $r = (new VehicleService(new SupabaseService))->getServiceStatus($uid);
             if (! $r) {
-                $tg->sendMessage($cid, 'âš ï¸ Belum ada data. Gunakan `/update_km` dulu.');
+                $tg->sendMessage($cid, '⚠️ Belum ada data. Gunakan `/update_km` dulu.');
 
                 return;
             }
-            $s = $r['remainingKm'] <= 0 ? 'ðŸš¨ *SERVIS SEKARANG!* Lewat '.number_format(abs($r['remainingKm'])).' KM' : ($r['remainingKm'] <= 200 ? 'âš ï¸ Tinggal *'.number_format($r['remainingKm']).' KM*' : 'âœ… Aman. Sisa *'.number_format($r['remainingKm']).' KM*');
+            $s = $r['remainingKm'] <= 0 ? 'ðŸš¨ *SERVIS SEKARANG!* Lewat '.number_format(abs($r['remainingKm'])).' KM' : ($r['remainingKm'] <= 200 ? '⚠️ Tinggal *'.number_format($r['remainingKm']).' KM*' : '✅ Aman. Sisa *'.number_format($r['remainingKm']).' KM*');
             $tg->sendMessage($cid, "🔧 *Status Servis*\n📍 Terakhir: *".number_format($r['lastKm'])." KM*\nðŸŽ¯ Target: *".number_format($r['nextServiceKm'])." KM*\n\n{$s}");
         } catch (\Exception $e) {
-            $tg->sendMessage($cid, 'âŒ Error cek servis.');
+            $tg->sendMessage($cid, '❌ Error cek servis.');
         }
     }
 
@@ -229,13 +229,13 @@ class BotRouter
     {
         $p = ExpenseParser::parse($text, $implicit ? self::IMPLICIT_MIN_AMOUNT : 0);
         if (! $p) {
-            $tg->sendMessage($cid, 'âš ï¸ Format: `/log 50k makan siang`');
+            $tg->sendMessage($cid, '⚠️ Format: `/log 50k makan siang`');
 
             return;
         }
         try {
             $s = new SheetsService;
-            // Duplicate guard: same amount+description as last row today â†’ warn but still save (ponytail: one read, no lock)
+            // Duplicate guard: same amount+description as last row today ’ warn but still save (ponytail: one read, no lock)
             $dup = false;
             try {
                 $last = $s->lastExpense();
@@ -246,9 +246,9 @@ class BotRouter
                 // ignore check failure
             }
             $s->appendExpense($p['amount'], $p['description'], $p['category']);
-            $reply = 'âœ… *Rp '.ExpenseSummary::rupiah($p['amount'])."* untuk *{$p['description']}*\nðŸ“ {$p['category']}";
+            $reply = '✅ *Rp '.ExpenseSummary::rupiah($p['amount'])."* untuk *{$p['description']}*\nðŸ“ {$p['category']}";
             if ($dup) {
-                $reply = "âš ï¸ *Duplikat?* Mirip transaksi terakhir hari ini.\nKetik `/undo` jika salah.\n\n".$reply;
+                $reply = "⚠️ *Duplikat?* Mirip transaksi terakhir hari ini.\nKetik `/undo` jika salah.\n\n".$reply;
             }
             // Category budget alert — ponytail: one extra Sheets read + one Supabase read, best-effort
             $catAlert = '';
@@ -264,7 +264,7 @@ class BotRouter
                         if ($pct >= 100) {
                             $catAlert = "\nðŸš¨ *Budget {$p['category']} lewat!* {$pct}% (Rp ".ExpenseSummary::rupiah($spentCat).' / '.ExpenseSummary::rupiah($limit).')';
                         } elseif ($pct >= 80) {
-                            $catAlert = "\nâš ï¸ *Budget {$p['category']} 80%* {$pct}% (Rp ".ExpenseSummary::rupiah($spentCat).' / '.ExpenseSummary::rupiah($limit).')';
+                            $catAlert = "\n⚠️ *Budget {$p['category']} 80%* {$pct}% (Rp ".ExpenseSummary::rupiah($spentCat).' / '.ExpenseSummary::rupiah($limit).')';
                         }
                     }
                 }
@@ -275,7 +275,7 @@ class BotRouter
             $extra = trim($catAlert."\n\n".$budget);
             $tg->sendMessage($cid, $extra ? "{$reply}\n\n{$extra}" : $reply);
         } catch (\Exception $e) {
-            $tg->sendMessage($cid, 'âŒ Error simpan ke Sheets.');
+            $tg->sendMessage($cid, '❌ Error simpan ke Sheets.');
         }
     }
 
@@ -283,14 +283,14 @@ class BotRouter
     {
         $p = explode(' ', $text);
         if (count($p) < 3) {
-            $tg->sendMessage($cid, 'âš ï¸ Format: `/follow [sport] [team]`');
+            $tg->sendMessage($cid, '⚠️ Format: `/follow [sport] [team]`');
 
             return;
         }
         $sport = SportPrefsService::normalizeSport(strtolower($p[1]));
         // futsal alias timnas/garuda normalization happens in resolveEntity, keep sport as futsal here
         if (! in_array($sport, SportPrefsService::SPORTS, true)) {
-            $tg->sendMessage($cid, "âš ï¸ Sport *{$p[1]}* belum didukung.\nPilihan: `".implode('`, `', SportPrefsService::SPORTS).'`');
+            $tg->sendMessage($cid, "⚠️ Sport *{$p[1]}* belum didukung.\nPilihan: `".implode('`, `', SportPrefsService::SPORTS).'`');
 
             return;
         }
@@ -301,9 +301,9 @@ class BotRouter
                 return;
             }
             (new SportPrefsService(new SupabaseService))->addPreference($uid, $sport, strtolower($name), $name);
-            $tg->sendMessage($cid, "âœ… Memantau *{$name}* di *{$sport}*");
+            $tg->sendMessage($cid, "✅ Memantau *{$name}* di *{$sport}*");
         } catch (\Exception $e) {
-            $tg->sendMessage($cid, 'âŒ Error simpan preferensi.');
+            $tg->sendMessage($cid, '❌ Error simpan preferensi.');
         }
     }
 
@@ -323,7 +323,7 @@ class BotRouter
                         return $wanted;
                     }
                 }
-                $tg->sendMessage($cid, "âš ï¸ *{$wanted}* tidak cocok dengan sisa balapan musim ini.\nContoh: `".implode('`, `', array_slice($races, 0, 4)).'`');
+                $tg->sendMessage($cid, "⚠️ *{$wanted}* tidak cocok dengan sisa balapan musim ini.\nContoh: `".implode('`, `', array_slice($races, 0, 4)).'`');
 
                 return null;
             }
@@ -336,11 +336,11 @@ class BotRouter
                     }
                 }
                 if (empty($options)) {
-                    $tg->sendMessage($cid, "âš ï¸ Tim *{$wanted}* tidak ditemukan di data mobilelegend.");
+                    $tg->sendMessage($cid, "⚠️ Tim *{$wanted}* tidak ditemukan di data mobilelegend.");
 
                     return null;
                 }
-                $tg->sendMessage($cid, "âš ï¸ Tim *{$wanted}* tidak persis ada. Maksudmu:\n`".implode("`\n`", array_slice($options, 0, 6)).'`');
+                $tg->sendMessage($cid, "⚠️ Tim *{$wanted}* tidak persis ada. Maksudmu:\n`".implode("`\n`", array_slice($options, 0, 6)).'`');
 
                 return null;
             }
@@ -357,11 +357,11 @@ class BotRouter
                     }
                 }
                 if (empty($options)) {
-                    $tg->sendMessage($cid, 'âš ï¸ Hanya *Indonesia* yang didukung untuk futsal saat ini. Coba `/follow futsal Indonesia`.');
+                    $tg->sendMessage($cid, '⚠️ Hanya *Indonesia* yang didukung untuk futsal saat ini. Coba `/follow futsal Indonesia`.');
 
                     return null;
                 }
-                $tg->sendMessage($cid, "âš ï¸ Tim *{$wanted}* tidak persis ada. Maksudmu:\n`".implode("`\n`", array_slice($options, 0, 6)).'`');
+                $tg->sendMessage($cid, "⚠️ Tim *{$wanted}* tidak persis ada. Maksudmu:\n`".implode("`\n`", array_slice($options, 0, 6)).'`');
 
                 return null;
             }
@@ -375,15 +375,15 @@ class BotRouter
                 }
             }
             if (empty($options)) {
-                $tg->sendMessage($cid, "âš ï¸ Tim *{$wanted}* tidak ditemukan di data {$sport}.");
+                $tg->sendMessage($cid, "⚠️ Tim *{$wanted}* tidak ditemukan di data {$sport}.");
 
                 return null;
             }
-            $tg->sendMessage($cid, "âš ï¸ Tim *{$wanted}* tidak persis ada. Maksudmu:\n`".implode("`\n`", array_slice($options, 0, 6)).'`');
+            $tg->sendMessage($cid, "⚠️ Tim *{$wanted}* tidak persis ada. Maksudmu:\n`".implode("`\n`", array_slice($options, 0, 6)).'`');
 
             return null;
         } catch (\Throwable $e) {
-            $tg->sendMessage($cid, "âŒ Gagal cek nama: {$e->getMessage()}");
+            $tg->sendMessage($cid, "❌ Gagal cek nama: {$e->getMessage()}");
 
             return null;
         }
@@ -393,16 +393,16 @@ class BotRouter
     {
         $p = explode(' ', $text);
         if (count($p) < 3) {
-            $tg->sendMessage($cid, 'âš ï¸ Format: `/unfollow [sport] [team]`');
+            $tg->sendMessage($cid, '⚠️ Format: `/unfollow [sport] [team]`');
 
             return;
         }
         try {
             $sport = SportPrefsService::normalizeSport(strtolower($p[1]));
             (new SportPrefsService(new SupabaseService))->removePreference($uid, $sport, strtolower(implode(' ', array_slice($p, 2))));
-            $tg->sendMessage($cid, 'âœ… Berhenti memantau.');
+            $tg->sendMessage($cid, '✅ Berhenti memantau.');
         } catch (\Exception $e) {
-            $tg->sendMessage($cid, 'âŒ Error hapus preferensi.');
+            $tg->sendMessage($cid, '❌ Error hapus preferensi.');
         }
     }
 
@@ -421,7 +421,7 @@ class BotRouter
             }
             $tg->sendMessage($cid, $m);
         } catch (\Exception $e) {
-            $tg->sendMessage($cid, 'âŒ Error ambil daftar.');
+            $tg->sendMessage($cid, '❌ Error ambil daftar.');
         }
     }
 
@@ -435,7 +435,7 @@ class BotRouter
             if ($category !== null) {
                 $catNorm = SportPrefsService::normalizeSport($category);
                 if (! in_array($catNorm, $allowed, true)) {
-                    $tg->sendMessage($cid, "âš ï¸ Kategori tidak dikenal. Pilihan: {$allowedList}");
+                    $tg->sendMessage($cid, "⚠️ Kategori tidak dikenal. Pilihan: {$allowedList}");
 
                     return;
                 }
@@ -549,11 +549,11 @@ class BotRouter
             }
             $remaining = count($all) - $cap;
             if ($remaining > 0) {
-                $msg .= "\nâ€¦ and {$remaining} more";
+                $msg .= "\n… and {$remaining} more";
             }
             $tg->sendMessage($cid, $msg);
         } catch (\Throwable $e) {
-            $tg->sendMessage($cid, "âš ï¸ Failed to fetch schedule: {$e->getMessage()}");
+            $tg->sendMessage($cid, "⚠️ Failed to fetch schedule: {$e->getMessage()}");
         }
     }
 
@@ -576,7 +576,7 @@ class BotRouter
             $msg = "📊 Kategori: ".implode(', ', $parts)." — cek via `/schedule [kategori]`";
             $tg->sendMessage($cid, $msg);
         } catch (\Throwable $e) {
-            $tg->sendMessage($cid, "âš ï¸ Failed to fetch categories: {$e->getMessage()}");
+            $tg->sendMessage($cid, "⚠️ Failed to fetch categories: {$e->getMessage()}");
         }
     }
 
