@@ -10,7 +10,7 @@ class FootballService
     private const API = 'https://v3.football.api-sports.io';
 
     /**
-     * Not-yet-kicked-off fixtures for the next 7 days, trimmed to the fields
+     * Not-yet-kicked-off fixtures for the next 3 days, trimmed to the fields
      * the notifier uses. Cached because the API-Sports free plan allows 100
      * requests/day while bot:notify runs every 15 minutes.
      */

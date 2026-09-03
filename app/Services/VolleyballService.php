@@ -10,7 +10,7 @@ class VolleyballService
     private const API = 'https://v1.volleyball.api-sports.io';
 
     /**
-     * Not-yet-started games for the next 7 days.
+     * Not-yet-started games for the next 3 days.
      * Cached because the API-Sports free plan allows 100 requests/day while
      * bot:notify runs every 15 minutes.
      */

@@ -54,7 +54,7 @@ class BotRouterJadwalTest extends TestCase
         $this->routerWithMock($sent)->handle($this->update('/schedule'));
 
         $this->assertNotEmpty($sent);
-        $this->assertStringContainsString('Schedule next 7 days', $sent[0]);
+        $this->assertStringContainsString('Schedule next 3 days', $sent[0]);
         $this->assertStringContainsString('Liverpool vs Arsenal', $sent[0]);
     }
 
@@ -105,7 +105,7 @@ class BotRouterJadwalTest extends TestCase
         ]);
         $sent = [];
         $this->routerWithMock($sent)->handle($this->update('/schedule'));
-        $this->assertStringContainsString('No schedule in the next 7 days', $sent[0]);
+        $this->assertStringContainsString('No schedule in the next 3 days', $sent[0]);
     }
 
     public function test_fallback_hits_api_when_db_empty(): void
