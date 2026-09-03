@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 namespace App\Services;
 
@@ -21,35 +21,35 @@ class BotRouter
 
     /** The command list Telegram shows in its own "/" menu. */
     public const MENU = [
-        'log' => 'Catat pengeluaran â€” /log 50k makan siang',
+        'log' => 'Catat pengeluaran — /log 50k makan siang',
         'undo' => 'Hapus pengeluaran terakhir',
-        'summary' => 'Ringkasan pengeluaran â€” /summary atau /summary 30',
-        'update_km' => 'Update odometer motor â€” /update_km 12500',
+        'summary' => 'Ringkasan pengeluaran — /summary atau /summary 30',
+        'update_km' => 'Update odometer motor — /update_km 12500',
         'check_service' => 'Sisa KM sampai servis berikutnya',
-        'follow' => 'Pantau tim atau balapan â€” /follow volly Indonesia',
-        'unfollow' => 'Berhenti memantau â€” /unfollow volly Indonesia',
+        'follow' => 'Pantau tim atau balapan — /follow volly Indonesia',
+        'unfollow' => 'Berhenti memantau — /unfollow volly Indonesia',
         'myteams' => 'Daftar yang sedang dipantau',
-        'schedule' => 'Check schedule next 7 days â€” /schedule [kategori]',
-        'categories' => 'Daftar kategori â€” /categories',
+        'schedule' => 'Check schedule next 7 days — /schedule [kategori]',
+        'categories' => 'Daftar kategori — /categories',
     ];
 
-    private const WELCOME = "ðŸ‘‹ *Serene Darwin*\n"
+    private const WELCOME = "👋 *Serene Darwin*\n"
         ."Asisten pribadi buat catat duit, motor, dan jadwal pertandingan.\n\n"
-        ."ðŸ’° *Keuangan*\n"
-        ."`50k makan siang` â€” catat langsung, tanpa perintah\n"
-        ."`25k kopi #Jajan` â€” pakai kategori\n"
-        ."`/undo` â€” hapus catatan terakhir\n"
-        ."`/summary` â€” ringkasan 7 hari\n"
-        ."`/summary 30` â€” ganti jumlah hari\n\n"
-        ."ðŸï¸ *Motor*\n"
-        ."`/update_km 12500` â€” update odometer\n"
-        ."`/check_service` â€” sisa KM ke servis\n\n"
-        ."ðŸ† *Olahraga*\n"
-        ."`/follow volly Indonesia` â€” pantau tim\n"
-        ."`/unfollow volly Indonesia` â€” berhenti pantau\n"
-        ."`/myteams` â€” daftar pantauan\n"
-        ."`/schedule [kategori]` â€” check schedule next 7 days\n"
-        ."`/categories` â€” daftar kategori\n\n"
+        ."💰 *Keuangan*\n"
+        ."`50k makan siang` — catat langsung, tanpa perintah\n"
+        ."`25k kopi #Jajan` — pakai kategori\n"
+        ."`/undo` — hapus catatan terakhir\n"
+        ."`/summary` — ringkasan 7 hari\n"
+        ."`/summary 30` — ganti jumlah hari\n\n"
+        ."🏍️ *Motor*\n"
+        ."`/update_km 12500` — update odometer\n"
+        ."`/check_service` — sisa KM ke servis\n\n"
+        ."🏆 *Olahraga*\n"
+        ."`/follow volly Indonesia` — pantau tim\n"
+        ."`/unfollow volly Indonesia` — berhenti pantau\n"
+        ."`/myteams` — daftar pantauan\n"
+        ."`/schedule [kategori]` — check schedule next 7 days\n"
+        ."`/categories` — daftar kategori\n\n"
         ."_Notifikasi 1 jam sebelum pertandingan, skor akhir setelah selesai,_\n"
         .'_laporan mingguan tiap Senin pagi._';
 
@@ -82,7 +82,7 @@ class BotRouter
 
                 return;
             }
-            $tg->sendMessage($cid, "ðŸ“¸ *Foto diterima.* Tambahkan caption mis. `50k bensin #Transport` untuk catat otomatis.\n_OCR penuh butuh VISION_API_KEY â€” caption sudah bisa._");
+            $tg->sendMessage($cid, "📸 *Foto diterima.* Tambahkan caption mis. `50k bensin #Transport` untuk catat otomatis.\n_OCR penuh butuh VISION_API_KEY — caption sudah bisa._");
 
             return;
         }
@@ -167,7 +167,7 @@ class BotRouter
         try {
             $r = (new SheetsService)->getRecentExpenses($days);
             if (empty($r['items'])) {
-                $tg->sendMessage($cid, "ðŸ“… Belum ada pengeluaran {$days} hari terakhir.");
+                $tg->sendMessage($cid, "📅 Belum ada pengeluaran {$days} hari terakhir.");
 
                 return;
             }
@@ -183,7 +183,7 @@ class BotRouter
             $s = new SheetsService;
             $last = $s->lastExpense();
             if (! $last) {
-                $tg->sendMessage($cid, 'ðŸ“­ Belum ada pengeluaran untuk dihapus.');
+                $tg->sendMessage($cid, '📭 Belum ada pengeluaran untuk dihapus.');
 
                 return;
             }
@@ -203,7 +203,7 @@ class BotRouter
         }
         try {
             $r = (new VehicleService(new SupabaseService))->updateOdometer($uid, $un, (int) $m[1]);
-            $tg->sendMessage($cid, "ðŸï¸ *Updated!*\nðŸ“ KM: *".number_format($r['lastKm'])."*\nðŸ”§ Servis: *".number_format($r['nextServiceKm']).' KM*');
+            $tg->sendMessage($cid, "🏍️ *Updated!*\n📍 KM: *".number_format($r['lastKm'])."*\n🔧 Servis: *".number_format($r['nextServiceKm']).' KM*');
         } catch (\Exception $e) {
             $tg->sendMessage($cid, 'âŒ Error update odometer.');
         }
@@ -219,7 +219,7 @@ class BotRouter
                 return;
             }
             $s = $r['remainingKm'] <= 0 ? 'ðŸš¨ *SERVIS SEKARANG!* Lewat '.number_format(abs($r['remainingKm'])).' KM' : ($r['remainingKm'] <= 200 ? 'âš ï¸ Tinggal *'.number_format($r['remainingKm']).' KM*' : 'âœ… Aman. Sisa *'.number_format($r['remainingKm']).' KM*');
-            $tg->sendMessage($cid, "ðŸ”§ *Status Servis*\nðŸ“ Terakhir: *".number_format($r['lastKm'])." KM*\nðŸŽ¯ Target: *".number_format($r['nextServiceKm'])." KM*\n\n{$s}");
+            $tg->sendMessage($cid, "🔧 *Status Servis*\n📍 Terakhir: *".number_format($r['lastKm'])." KM*\nðŸŽ¯ Target: *".number_format($r['nextServiceKm'])." KM*\n\n{$s}");
         } catch (\Exception $e) {
             $tg->sendMessage($cid, 'âŒ Error cek servis.');
         }
@@ -250,7 +250,7 @@ class BotRouter
             if ($dup) {
                 $reply = "âš ï¸ *Duplikat?* Mirip transaksi terakhir hari ini.\nKetik `/undo` jika salah.\n\n".$reply;
             }
-            // Category budget alert â€” ponytail: one extra Sheets read + one Supabase read, best-effort
+            // Category budget alert — ponytail: one extra Sheets read + one Supabase read, best-effort
             $catAlert = '';
             try {
                 $budgets = (new SupabaseService)->select('category_budgets', ['select' => 'monthly_limit', 'user_id' => 'eq.'.config('services.telegram.owner_id'), 'category' => 'eq.'.$p['category']]);
@@ -411,7 +411,7 @@ class BotRouter
         try {
             $list = (new SportPrefsService(new SupabaseService))->getPreferences($uid);
             if (empty($list)) {
-                $tg->sendMessage($cid, 'ðŸ“­ Belum ada yang dipantau.');
+                $tg->sendMessage($cid, '📭 Belum ada yang dipantau.');
 
                 return;
             }
@@ -447,12 +447,12 @@ class BotRouter
             if ($catNorm !== null) {
                 $prefs = array_values(array_filter($prefs, fn ($p) => in_array($p['sport_type'], $catExpanded, true)));
                 if (empty($prefs)) {
-                    $tg->sendMessage($cid, "ðŸ“­ No schedule for {$catNorm} in the next 7 days. Use `/follow {$catNorm} [team]`.");
+                    $tg->sendMessage($cid, "📭 No schedule for {$catNorm} in the next 7 days. Use `/follow {$catNorm} [team]`.");
 
                     return;
                 }
             } elseif (empty($prefs)) {
-                $tg->sendMessage($cid, 'ðŸ“­ No teams followed. Use `/follow [sport] [team]`.');
+                $tg->sendMessage($cid, '📭 No teams followed. Use `/follow [sport] [team]`.');
 
                 return;
             }
@@ -530,11 +530,11 @@ class BotRouter
 
             if (empty($all)) {
                 if ($catNorm !== null) {
-                    $tg->sendMessage($cid, "ðŸ“­ No schedule for {$catNorm} in the next 7 days.");
+                    $tg->sendMessage($cid, "📭 No schedule for {$catNorm} in the next 7 days.");
 
                     return;
                 }
-                $tg->sendMessage($cid, 'ðŸ“­ No schedule in the next 7 days.');
+                $tg->sendMessage($cid, '📭 No schedule in the next 7 days.');
 
                 return;
             }
@@ -542,7 +542,7 @@ class BotRouter
             usort($all, fn ($a, $b) => strcmp($a['iso'], $b['iso']));
             $cap = 10;
             $slice = array_slice($all, 0, $cap);
-            $header = $catNorm !== null ? "ðŸ“… *Schedule {$catNorm} â€” next 7 days*\n\n" : "ðŸ“… *Schedule next 7 days*\n\n";
+            $header = $catNorm !== null ? "📅 *Schedule {$catNorm} — next 7 days*\n\n" : "📅 *Schedule next 7 days*\n\n";
             $msg = $header;
             foreach ($slice as $i => $row) {
                 $msg .= ($i + 1).'. '.$row['line']."\n";
@@ -573,7 +573,7 @@ class BotRouter
             foreach (SportPrefsService::SPORTS as $s) {
                 $parts[] = "{$s} ({$counts[$s]})";
             }
-            $msg = "ðŸ“Š Kategori: ".implode(', ', $parts)." â€” cek via `/schedule [kategori]`";
+            $msg = "📊 Kategori: ".implode(', ', $parts)." — cek via `/schedule [kategori]`";
             $tg->sendMessage($cid, $msg);
         } catch (\Throwable $e) {
             $tg->sendMessage($cid, "âš ï¸ Failed to fetch categories: {$e->getMessage()}");
@@ -588,15 +588,15 @@ class BotRouter
         if (in_array($sport, ['motogp', 'moto2', 'moto3', 'baggers'], true)) {
             $race = $r['competition'] ?? $sport;
             $circuit = $r['home_team'] ?? '';
-            $line = "ðŸï¸ *{$race}*".($circuit ? " @ {$circuit}" : '')." â€” â±ï¸ {$time}";
+            $line = "🏍️ *{$race}*".($circuit ? " @ {$circuit}" : '')." — ⏱️ {$time}";
         } elseif ($sport === 'volly') {
-            $line = "ðŸ {$r['home_team']} vs {$r['away_team']} â€” {$r['competition']} â€” â±ï¸ {$time}";
+            $line = "🏐 {$r['home_team']} vs {$r['away_team']} — {$r['competition']} — ⏱️ {$time}";
         } elseif ($sport === 'mobilelegend') {
-            $line = "ðŸŽ® {$r['home_team']} vs {$r['away_team']} â€” {$r['competition']} â€” â±ï¸ {$time}";
+            $line = "🎮 {$r['home_team']} vs {$r['away_team']} — {$r['competition']} — ⏱️ {$time}";
         } elseif ($sport === 'futsal') {
-            $line = "âš½ {$r['home_team']} vs {$r['away_team']} â€” {$r['competition']} â€” â±ï¸ {$time}";
+            $line = "⚽ {$r['home_team']} vs {$r['away_team']} — {$r['competition']} — ⏱️ {$time}";
         } else {
-            $line = "âš½ {$r['home_team']} vs {$r['away_team']} â€” {$r['competition']} â€” â±ï¸ {$time}";
+            $line = "⚽ {$r['home_team']} vs {$r['away_team']} — {$r['competition']} — ⏱️ {$time}";
         }
 
         return ['iso' => $iso, 'line' => $line];
@@ -619,7 +619,7 @@ class BotRouter
                     if (! NameMatcher::matches($m['home'], $p['entity_name']) && ! NameMatcher::matches($m['away'], $p['entity_name'])) {
                         continue;
                     }
-                    $out[] = ['iso' => $iso, 'line' => "âš½ {$m['home']} vs {$m['away']} â€” {$m['league']} â€” â±ï¸ ".DisplayTime::format($iso)];
+                    $out[] = ['iso' => $iso, 'line' => "⚽ {$m['home']} vs {$m['away']} — {$m['league']} — ⏱️ ".DisplayTime::format($iso)];
                     break;
                 }
             }
@@ -647,7 +647,7 @@ class BotRouter
                     if (! NameMatcher::matches($m['home'], $p['entity_name']) && ! NameMatcher::matches($m['away'], $p['entity_name'])) {
                         continue;
                     }
-                    $out[] = ['iso' => $iso, 'line' => "ðŸ {$m['home']} vs {$m['away']} â€” {$m['league']} â€” â±ï¸ ".DisplayTime::format($iso)];
+                    $out[] = ['iso' => $iso, 'line' => "🏐 {$m['home']} vs {$m['away']} — {$m['league']} — ⏱️ ".DisplayTime::format($iso)];
                     break;
                 }
             }
@@ -676,7 +676,7 @@ class BotRouter
                     if (! $moto->matchesRace($r['raceName'], $p['entity_name'])) {
                         continue;
                     }
-                    $out[] = ['iso' => $iso, 'line' => "ðŸï¸ *{$r['raceName']}* @ {$r['Circuit']['circuitName']} â€” â±ï¸ ".DisplayTime::format($iso)];
+                    $out[] = ['iso' => $iso, 'line' => "🏍️ *{$r['raceName']}* @ {$r['Circuit']['circuitName']} — ⏱️ ".DisplayTime::format($iso)];
                     break;
                 }
             }
@@ -704,7 +704,7 @@ class BotRouter
                     if (! NameMatcher::matches($m['home'], $p['entity_name']) && ! NameMatcher::matches($m['away'], $p['entity_name'])) {
                         continue;
                     }
-                    $out[] = ['iso' => $iso, 'line' => "ðŸŽ® {$m['home']} vs {$m['away']} â€” {$m['league']} â€” â±ï¸ ".DisplayTime::format($iso)];
+                    $out[] = ['iso' => $iso, 'line' => "🎮 {$m['home']} vs {$m['away']} — {$m['league']} — ⏱️ ".DisplayTime::format($iso)];
                     break;
                 }
             }
@@ -728,7 +728,7 @@ class BotRouter
                 if (! MatchHelper::isNext7Days($iso, $now)) {
                     continue;
                 }
-                // futsal timnas single team Indonesia â€” trivial contains
+                // futsal timnas single team Indonesia — trivial contains
                 foreach ($prefs as $p) {
                     if (! NameMatcher::matches($m['home'], $p['entity_name']) && ! NameMatcher::matches($m['away'], $p['entity_name'])) {
                         // fallback: if either side is Indonesia
@@ -736,7 +736,7 @@ class BotRouter
                             continue;
                         }
                     }
-                    $out[] = ['iso' => $iso, 'line' => "âš½ {$m['home']} vs {$m['away']} â€” {$m['league']} â€” â±ï¸ ".DisplayTime::format($iso)];
+                    $out[] = ['iso' => $iso, 'line' => "⚽ {$m['home']} vs {$m['away']} — {$m['league']} — ⏱️ ".DisplayTime::format($iso)];
                     break;
                 }
             }
